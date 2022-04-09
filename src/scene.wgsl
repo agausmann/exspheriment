@@ -44,7 +44,13 @@ fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
 
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
+    let dx = dpdx(in.position);
+    // dy in window coordinates, positive dpdy means down
+    let dy = -dpdy(in.position);
+    let normal = normalize(cross(dx, dy));
+
     let ray = normalize(uniforms.camera - in.position);
-    let coef = dot(ray, in.normal);
-    return vec4<f32>(in.position * coef, 1.0);
+    let coef = dot(ray, normal);
+    let color = vec3<f32>(0.3, 0.4, 0.5);
+    return vec4<f32>(color * coef, 1.0);
 }

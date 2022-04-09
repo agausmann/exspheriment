@@ -240,9 +240,9 @@ impl Scene {
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, &self.bind_group, &[]);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            // render_pass.draw_model(&self.icos.model);
             render_pass.draw_model(&self.square.model, 0..1);
-            render_pass.draw_model(&self.triangle.model, 1..2);
+            // render_pass.draw_model(&self.triangle.model, 1..2);
+            render_pass.draw_model(&self.icos.model, 1..2);
         }
     }
 }
