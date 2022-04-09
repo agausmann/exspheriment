@@ -134,13 +134,13 @@ impl Scene {
                     topology: wgpu::PrimitiveTopology::TriangleList,
                     strip_index_format: None,
                     front_face: wgpu::FrontFace::Cw,
-                    cull_mode: None, //Some(wgpu::Face::Back),
+                    cull_mode: Some(wgpu::Face::Back),
                     ..Default::default()
                 },
                 depth_stencil: Some(wgpu::DepthStencilState {
                     format: gfx.depth_format,
                     depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::GreaterEqual,
+                    depth_compare: wgpu::CompareFunction::Less,
                     stencil: Default::default(),
                     bias: Default::default(),
                 }),
@@ -167,7 +167,7 @@ impl Scene {
             uniform_buffer,
             instance_buffer,
             instances,
-            camera_position: Vec3::new(0.0, -3.0, 1.0),
+            camera_position: Vec3::new(0.0, -3.0, 1.5),
             animation_start: Instant::now(),
         }
     }
@@ -179,7 +179,7 @@ impl Scene {
         //Triangle
         let t = self.animation_start.elapsed().as_secs_f32();
         self.instances[1].model = Mat4::from_scale_rotation_translation(
-            Vec3::splat(0.5),
+            Vec3::splat(0.8),
             Quat::from_rotation_z(TAU * t / 5.0),
             Vec3::new(0.0, 0.0, 1.5),
         )
@@ -198,7 +198,7 @@ impl Scene {
             size.width as f32 / size.height as f32,
             0.1,
         );
-        let camera = Mat4::look_at_rh(self.camera_position, Vec3::new(0.0, 0.0, 1.0), Vec3::Z);
+        let camera = Mat4::look_at_rh(self.camera_position, Vec3::new(0.0, 0.0, 1.5), Vec3::Z);
         let view_proj = projection * camera;
 
         self.gfx.queue.write_buffer(
@@ -230,7 +230,7 @@ impl Scene {
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: depth_view,
                     depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(0.0),
+                        load: wgpu::LoadOp::Clear(1.0),
                         store: true,
                     }),
                     stencil_ops: None,
