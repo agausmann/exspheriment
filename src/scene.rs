@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use wgpu::{include_wgsl, util::DeviceExt};
 
 use crate::{
-    geometry::{Icosahedron, Square, Triangle},
+    geometry::{Geodesic, Icosahedron, Square, Triangle},
     model::{self, Model},
     GraphicsContext,
 };
@@ -38,6 +38,7 @@ pub struct Scene {
     gfx: GraphicsContext,
     icos: Icosahedron,
     triangle: Triangle,
+    geodesic: Geodesic,
     square: Square,
     pipeline: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
@@ -53,6 +54,7 @@ impl Scene {
         let icos = Icosahedron::new(gfx);
         let triangle = Triangle::new(gfx);
         let square = Square::new(gfx);
+        let geodesic = Geodesic::new(gfx, 2);
 
         let instances = vec![Default::default(); 2];
 
@@ -162,6 +164,7 @@ impl Scene {
             icos,
             triangle,
             square,
+            geodesic,
             pipeline,
             bind_group,
             uniform_buffer,
@@ -243,7 +246,8 @@ impl Scene {
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.draw_model(&self.square.model, 0..1);
             // render_pass.draw_model(&self.triangle.model, 1..2);
-            render_pass.draw_model(&self.icos.model, 1..2);
+            // render_pass.draw_model(&self.icos.model, 1..2);
+            render_pass.draw_model(&self.geodesic.model, 1..2);
         }
     }
 }

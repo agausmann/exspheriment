@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use bytemuck::{Pod, Zeroable};
+use glam::Vec3;
 use once_cell::sync::Lazy;
 use wgpu::util::DeviceExt;
 
@@ -57,5 +58,29 @@ impl Model {
             index_buffer,
             index_range,
         }
+    }
+
+    pub fn with_computed_normals(
+        gfx: &GraphicsContext,
+        label: Option<&'static str>,
+        vertices: &[Vec3],
+        tris: &[u16],
+    ) -> Self {
+        let mut vertex_data = vec![Vertex::default(); vertices.len()];
+        for (i, &vec) in vertices.iter().enumerate() {
+            vertex_data[i].position = vec.into();
+        }
+        for tri in tris.chunks_exact(3) {
+            let a = vertices[tri[0] as usize];
+            let b = vertices[tri[1] as usize];
+            let c = vertices[tri[2] as usize];
+            //TODO should larger faces have larger weight (unnormalize here)?
+            let normal = (b - a).cross(c - a).normalize();
+            for &i in tri {
+                let vertex = &mut vertex_data[i as usize];
+                vertex.normal = (Vec3::from(vertex.normal) + normal).into();
+            }
+        }
+        Self::new(gfx, label, &vertex_data, tris)
     }
 }
