@@ -193,10 +193,11 @@ impl Scene {
         depth_view: &wgpu::TextureView,
     ) {
         let size = self.gfx.window.inner_size();
-        let projection = Mat4::perspective_infinite_rh(
+        let projection = Mat4::perspective_rh(
             75.0_f32.to_radians(),
             size.width as f32 / size.height as f32,
             0.1,
+            1000.0,
         );
         let camera = Mat4::look_at_rh(self.camera_position, Vec3::new(0.0, 0.0, 1.5), Vec3::Z);
         let view_proj = projection * camera;
