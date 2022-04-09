@@ -1,5 +1,10 @@
+mod geometry;
+mod model;
+mod scene;
+
 use anyhow::Context;
 use pollster::block_on;
+use scene::Scene;
 use std::sync::Arc;
 use winit::dpi::LogicalSize;
 use winit::event::{Event, WindowEvent};
@@ -14,6 +19,7 @@ pub struct GraphicsContextInner {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub render_format: wgpu::TextureFormat,
+    pub depth_format: wgpu::TextureFormat,
 }
 
 impl GraphicsContextInner {
@@ -42,6 +48,7 @@ impl GraphicsContextInner {
         let render_format = surface
             .get_preferred_format(&adapter)
             .context("failed to select a render format")?;
+        let depth_format = wgpu::TextureFormat::Depth32Float;
 
         Ok(Self {
             window,
@@ -49,6 +56,7 @@ impl GraphicsContextInner {
             device,
             queue,
             render_format,
+            depth_format,
         })
     }
 
@@ -68,6 +76,7 @@ impl GraphicsContextInner {
 
 struct App {
     gfx: GraphicsContext,
+    scene: Scene,
 }
 
 impl App {
@@ -75,10 +84,14 @@ impl App {
         let gfx = Arc::new(GraphicsContextInner::new(window).await?);
         gfx.reconfigure();
 
-        Ok(Self { gfx })
+        let scene = Scene::new(&gfx);
+
+        Ok(Self { gfx, scene })
     }
 
-    fn update(&mut self) {}
+    fn update(&mut self) {
+        self.scene.update();
+    }
 
     fn redraw(&mut self) -> anyhow::Result<()> {
         let frame = loop {
@@ -102,23 +115,26 @@ impl App {
             }
         };
 
-        let frame_view = frame.texture.create_view(&Default::default());
-        let mut encoder = self.gfx.device.create_command_encoder(&Default::default());
+        let size = self.gfx.window.inner_size();
 
-        {
-            let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachment {
-                    view: &frame_view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: None,
-            });
-        }
+        let depth_texture = self.gfx.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("depth_texture"),
+            size: wgpu::Extent3d {
+                width: size.width,
+                height: size.height,
+                ..Default::default()
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: self.gfx.depth_format,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        });
+
+        let frame_view = frame.texture.create_view(&Default::default());
+        let depth_view = depth_texture.create_view(&Default::default());
+        let mut encoder = self.gfx.device.create_command_encoder(&Default::default());
+        self.scene.draw(&mut encoder, &frame_view, &depth_view);
 
         self.gfx.queue.submit([encoder.finish()]);
         frame.present();
@@ -156,6 +172,9 @@ fn main() -> anyhow::Result<()> {
             }
             _ => {}
         },
+        Event::MainEventsCleared => {
+            app.gfx.window.request_redraw();
+        }
         _ => {}
     })
 }
