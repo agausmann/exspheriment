@@ -8,12 +8,14 @@ struct InstanceInput {
     [[location(3)]] model_1: vec4<f32>;
     [[location(4)]] model_2: vec4<f32>;
     [[location(5)]] model_3: vec4<f32>;
+    [[location(6)]] albedo: vec3<f32>;
 };
 
 struct VertexOutput {
     [[builtin(position)]] clip_position: vec4<f32>;
     [[location(0)]] position: vec3<f32>;
     [[location(1)]] normal: vec3<f32>;
+    [[location(2)]] albedo: vec3<f32>;
 };
 
 struct Uniforms {
@@ -38,6 +40,7 @@ fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
     out.position = position.xyz;
     out.normal = normalize((model * vec4<f32>(vertex.normal, 0.0)).xyz);
     out.clip_position = uniforms.view_proj * position;
+    out.albedo = instance.albedo;
 
     return out;
 }
@@ -51,6 +54,5 @@ fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
 
     let ray = normalize(uniforms.camera - in.position);
     let coef = dot(ray, normal);
-    let color = vec3<f32>(0.3, 0.6, 0.9);
-    return vec4<f32>(color * coef, 1.0);
+    return vec4<f32>(in.albedo * coef, 1.0);
 }

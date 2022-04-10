@@ -23,14 +23,16 @@ struct Uniforms {
 #[repr(C)]
 struct Instance {
     model: [[f32; 4]; 4],
+    albedo: [f32; 3],
 }
 
-static INSTANCE_ATTRIBUTES: Lazy<[wgpu::VertexAttribute; 4]> = Lazy::new(|| {
+static INSTANCE_ATTRIBUTES: Lazy<[wgpu::VertexAttribute; 5]> = Lazy::new(|| {
     wgpu::vertex_attr_array![
         2 => Float32x4,
         3 => Float32x4,
         4 => Float32x4,
         5 => Float32x4,
+        6 => Float32x3,
     ]
 });
 
@@ -178,6 +180,7 @@ impl Scene {
     pub fn update(&mut self) {
         // Square
         self.instances[0].model = Mat4::IDENTITY.to_cols_array_2d();
+        self.instances[0].albedo = Vec3::new(0.3, 0.6, 0.9).into();
 
         //Triangle
         let t = self.animation_start.elapsed().as_secs_f32();
@@ -187,6 +190,7 @@ impl Scene {
             Vec3::new(0.0, 0.0, 1.5),
         )
         .to_cols_array_2d();
+        self.instances[1].albedo = Vec3::new(0.3, 0.6, 0.9).into();
     }
 
     pub fn draw(
