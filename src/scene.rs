@@ -54,7 +54,7 @@ impl Scene {
         let icos = Icosahedron::new(gfx);
         let triangle = Triangle::new(gfx);
         let square = Square::new(gfx);
-        let geodesic = Geodesic::new(gfx, 2);
+        let geodesic = Geodesic::with_slerp(gfx, 4);
 
         let instances = vec![Default::default(); 2];
 
@@ -183,7 +183,7 @@ impl Scene {
         let t = self.animation_start.elapsed().as_secs_f32();
         self.instances[1].model = Mat4::from_scale_rotation_translation(
             Vec3::splat(0.8),
-            Quat::from_rotation_z(TAU * t / 5.0),
+            Quat::from_rotation_z(TAU * t / 20.0),
             Vec3::new(0.0, 0.0, 1.5),
         )
         .to_cols_array_2d();

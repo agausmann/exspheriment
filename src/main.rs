@@ -1,4 +1,5 @@
 mod geometry;
+mod math;
 mod model;
 mod scene;
 

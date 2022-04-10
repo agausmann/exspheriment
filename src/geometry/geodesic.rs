@@ -1,4 +1,8 @@
-use crate::{geometry::icosahedron, model::Model, GraphicsContext};
+use std::cmp::Ordering;
+
+use glam::Vec3;
+
+use crate::{geometry::icosahedron, math::slerp, model::Model, GraphicsContext};
 
 pub struct Geodesic {
     pub subdivisions: usize,
@@ -6,7 +10,11 @@ pub struct Geodesic {
 }
 
 impl Geodesic {
-    pub fn new(gfx: &GraphicsContext, subdivisions: usize) -> Self {
+    fn using_lerp(
+        gfx: &GraphicsContext,
+        subdivisions: usize,
+        lerp: fn(Vec3, Vec3, f32) -> Vec3,
+    ) -> Self {
         use icosahedron::{INDICES, VERTICES};
 
         let mut vertices = Vec::new();
@@ -25,18 +33,18 @@ impl Geodesic {
             for row in 1..=subdivisions {
                 // Construct vertexes for this row
                 let factor = row as f32 / subdivisions as f32;
-                let row_start = up.lerp(left, factor);
-                let row_end = up.lerp(right, factor);
+                let row_start = lerp(up, left, factor);
+                let row_end = lerp(up, right, factor);
                 for col in 0..=row {
                     let col_factor = col as f32 / row as f32;
-                    this_row.push(row_start.lerp(row_end, col_factor).normalize());
+                    this_row.push(lerp(row_start, row_end, col_factor).normalize());
                 }
 
                 // Construct triangles for this row
                 let last_row_base = vertices.len();
                 let this_row_base = last_row_base + last_row.len();
                 for i in 0..row {
-                    triangles.push([
+                    triangles.extend([
                         u16::try_from(this_row_base + i).unwrap(),
                         u16::try_from(last_row_base + i).unwrap(),
                         u16::try_from(this_row_base + i + 1).unwrap(),
@@ -44,7 +52,7 @@ impl Geodesic {
                 }
 
                 for i in 0..row - 1 {
-                    triangles.push([
+                    triangles.extend([
                         u16::try_from(last_row_base + i).unwrap(),
                         u16::try_from(last_row_base + i + 1).unwrap(),
                         u16::try_from(this_row_base + i + 1).unwrap(),
@@ -60,15 +68,18 @@ impl Geodesic {
             vertices.append(&mut last_row)
         }
 
-        let model = Model::with_computed_normals(
-            gfx,
-            Some("Geodesic"),
-            &vertices,
-            bytemuck::cast_slice(&triangles),
-        );
+        let model = Model::with_computed_normals(gfx, Some("Geodesic"), &vertices, &triangles);
         Self {
             subdivisions,
             model,
         }
+    }
+
+    pub fn new(gfx: &GraphicsContext, subdivisions: usize) -> Self {
+        Self::using_lerp(gfx, subdivisions, Vec3::lerp)
+    }
+
+    pub fn with_slerp(gfx: &GraphicsContext, subdivisions: usize) -> Self {
+        Self::using_lerp(gfx, subdivisions, crate::math::slerp)
     }
 }

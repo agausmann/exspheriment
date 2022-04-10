@@ -51,6 +51,6 @@ fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
 
     let ray = normalize(uniforms.camera - in.position);
     let coef = dot(ray, normal);
-    let color = vec3<f32>(0.3, 0.4, 0.5);
+    let color = vec3<f32>(0.3, 0.6, 0.9);
     return vec4<f32>(color * coef, 1.0);
 }
