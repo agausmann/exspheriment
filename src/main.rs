@@ -1,6 +1,7 @@
 mod geometry;
 mod math;
 mod model;
+mod orbit;
 mod scene;
 
 use anyhow::Context;

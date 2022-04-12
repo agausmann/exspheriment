@@ -8,6 +8,7 @@ use wgpu::{include_wgsl, util::DeviceExt};
 use crate::{
     geometry::{Geodesic, Icosahedron, Square, Triangle},
     model::{self, Model},
+    orbit::{Orbit, State},
     GraphicsContext,
 };
 
@@ -49,6 +50,7 @@ pub struct Scene {
     camera_position: Vec3,
     instances: Vec<Instance>,
     animation_start: Instant,
+    orbit: Orbit,
 }
 
 impl Scene {
@@ -57,8 +59,13 @@ impl Scene {
         let triangle = Triangle::new(gfx);
         let square = Square::new(gfx);
         let geodesic = Geodesic::with_slerp(gfx, 4);
+        let orbit = Orbit::new(State {
+            mu: 3.0,
+            e: 0.4,
+            a: 2.0,
+        });
 
-        let instances = vec![Default::default(); 2];
+        let instances = vec![Default::default(); 3];
 
         let uniform_buffer = gfx
             .device
@@ -172,8 +179,9 @@ impl Scene {
             uniform_buffer,
             instance_buffer,
             instances,
-            camera_position: Vec3::new(0.0, -3.0, 1.5),
+            camera_position: Vec3::new(0.0, -0.5, 5.0),
             animation_start: Instant::now(),
+            orbit,
         }
     }
 
@@ -191,6 +199,17 @@ impl Scene {
         )
         .to_cols_array_2d();
         self.instances[1].albedo = Vec3::new(0.3, 0.6, 0.9).into();
+
+        // Orbiting
+        let theta = self.orbit.theta(t).unwrap();
+        let r = self.orbit.radius(theta);
+        self.instances[2].model = Mat4::from_scale_rotation_translation(
+            Vec3::splat(0.1),
+            Quat::from_rotation_x(-TAU / 4.0),
+            Vec3::new(r * theta.cos(), r * theta.sin(), 1.5),
+        )
+        .to_cols_array_2d();
+        self.instances[2].albedo = Vec3::new(0.3, 0.4, 0.5).into();
     }
 
     pub fn draw(
@@ -252,6 +271,7 @@ impl Scene {
             // render_pass.draw_model(&self.triangle.model, 1..2);
             // render_pass.draw_model(&self.icos.model, 1..2);
             render_pass.draw_model(&self.geodesic.model, 1..2);
+            render_pass.draw_model(&self.triangle.model, 2..3);
         }
     }
 }
