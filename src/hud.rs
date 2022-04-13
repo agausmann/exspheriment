@@ -1,8 +1,9 @@
-use std::num::NonZeroU32;
+use std::{f32::consts::TAU, num::NonZeroU32};
 
-use tiny_skia::Pixmap;
+use glam::{Vec2, Vec4, Vec4Swizzles};
+use tiny_skia::{Paint, PathBuilder, Pixmap, Stroke, Transform};
 
-use crate::GraphicsContext;
+use crate::{viewport::Viewport, GraphicsContext};
 
 pub struct Hud {
     gfx: GraphicsContext,
@@ -163,7 +164,45 @@ impl Hud {
             });
     }
 
-    pub fn draw(&self, encoder: &mut wgpu::CommandEncoder, frame_view: &wgpu::TextureView) {
+    pub fn draw(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        frame_view: &wgpu::TextureView,
+        viewport: &Viewport,
+    ) {
+        let view_proj = viewport.view_proj();
+
+        let width = self.pixmap.width() as f32;
+        let height = self.pixmap.height() as f32;
+        let scale = 0.5 * Vec2::new(width, -height);
+        let translate = 0.5 * Vec2::new(width, height);
+
+        let mut path_builder = PathBuilder::new();
+
+        for i in 0..100 {
+            let k = (i as f32) / 100.0 * TAU;
+            let point = Vec4::new(1.5 * k.cos(), 1.5 * k.sin(), 1.5, 1.0);
+            let clip = view_proj * point;
+            let normalized = clip.xy() / clip.w;
+            let screen = normalized * scale + translate;
+
+            if i == 0 {
+                path_builder.move_to(screen.x, screen.y);
+            } else {
+                path_builder.line_to(screen.x, screen.y);
+            }
+        }
+        path_builder.close();
+        let path = path_builder.finish().unwrap();
+
+        let mut paint = Paint::default();
+        paint.set_color_rgba8(127, 96, 64, 255);
+        let mut stroke = Stroke::default();
+        stroke.width = 5.0;
+
+        self.pixmap
+            .stroke_path(&path, &paint, &stroke, Transform::identity(), None);
+
         self.gfx.queue.write_texture(
             wgpu::ImageCopyTexture {
                 texture: &self.texture,

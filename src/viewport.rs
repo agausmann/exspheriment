@@ -61,7 +61,7 @@ impl Viewport {
             bind_group_layout,
             bind_group,
             uniform_buffer,
-            camera_position: Vec3::new(0.0, -0.5, 5.0),
+            camera_position: Vec3::new(0.0, -1.5, 5.0),
             look_at: Vec3::new(0.0, 0.0, 1.5),
         }
     }
@@ -75,6 +75,18 @@ impl Viewport {
     }
 
     pub fn update(&mut self) {
+        self.gfx.queue.write_buffer(
+            &self.uniform_buffer,
+            0,
+            bytemuck::bytes_of(&Uniforms {
+                view_proj: self.view_proj().to_cols_array_2d(),
+                camera: self.camera_position.into(),
+                ..Default::default()
+            }),
+        );
+    }
+
+    pub fn view_proj(&self) -> Mat4 {
         let size = self.gfx.window.inner_size();
         let projection = Mat4::perspective_rh(
             75.0_f32.to_radians(),
@@ -83,16 +95,6 @@ impl Viewport {
             1000.0,
         );
         let camera = Mat4::look_at_rh(self.camera_position, self.look_at, Vec3::Z);
-        let view_proj = projection * camera;
-
-        self.gfx.queue.write_buffer(
-            &self.uniform_buffer,
-            0,
-            bytemuck::bytes_of(&Uniforms {
-                view_proj: view_proj.to_cols_array_2d(),
-                camera: self.camera_position.into(),
-                ..Default::default()
-            }),
-        );
+        projection * camera
     }
 }

@@ -152,7 +152,7 @@ impl App {
         let mut encoder = self.gfx.device.create_command_encoder(&Default::default());
         self.scene
             .draw(&mut encoder, &frame_view, &depth_view, &self.viewport);
-        self.hud.draw(&mut encoder, &frame_view);
+        self.hud.draw(&mut encoder, &frame_view, &self.viewport);
 
         self.gfx.queue.submit([encoder.finish()]);
         frame.present();

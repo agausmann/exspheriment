@@ -6,10 +6,10 @@ struct VertexOutput {
 [[stage(vertex)]]
 fn vs_main([[builtin(vertex_index)]] vertex_index: u32) -> VertexOutput {
     var CLIP_POSITION = array<vec4<f32>, 4>(
-        vec4<f32>(-1.0, -1.0, 0.0, 0.0),
-        vec4<f32>(-1.0, 1.0, 0.0, 0.0),
-        vec4<f32>(1.0, 1.0, 0.0, 0.0),
-        vec4<f32>(1.0, -1.0, 0.0, 0.0),
+        vec4<f32>(-1.0, -1.0, 0.0, 1.0),
+        vec4<f32>(-1.0, 1.0, 0.0, 1.0),
+        vec4<f32>(1.0, 1.0, 0.0, 1.0),
+        vec4<f32>(1.0, -1.0, 0.0, 1.0),
     );
     var UV = array<vec2<f32>, 4>(
         vec2<f32>(0.0, 1.0),
