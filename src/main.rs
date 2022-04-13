@@ -4,12 +4,14 @@ mod math;
 mod model;
 mod orbit;
 mod scene;
+mod viewport;
 
 use anyhow::Context;
 use hud::Hud;
 use pollster::block_on;
 use scene::Scene;
 use std::sync::Arc;
+use viewport::Viewport;
 use winit::dpi::LogicalSize;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -80,6 +82,7 @@ impl GraphicsContextInner {
 
 struct App {
     gfx: GraphicsContext,
+    viewport: Viewport,
     scene: Scene,
     hud: Hud,
 }
@@ -89,13 +92,20 @@ impl App {
         let gfx = Arc::new(GraphicsContextInner::new(window).await?);
         gfx.reconfigure();
 
-        let scene = Scene::new(&gfx);
+        let viewport = Viewport::new(&gfx);
+        let scene = Scene::new(&gfx, &viewport);
         let hud = Hud::new(&gfx);
 
-        Ok(Self { gfx, hud, scene })
+        Ok(Self {
+            gfx,
+            viewport,
+            scene,
+            hud,
+        })
     }
 
     fn update(&mut self) {
+        self.viewport.update();
         self.scene.update();
     }
 
@@ -140,7 +150,8 @@ impl App {
         let frame_view = frame.texture.create_view(&Default::default());
         let depth_view = depth_texture.create_view(&Default::default());
         let mut encoder = self.gfx.device.create_command_encoder(&Default::default());
-        self.scene.draw(&mut encoder, &frame_view, &depth_view);
+        self.scene
+            .draw(&mut encoder, &frame_view, &depth_view, &self.viewport);
         self.hud.draw(&mut encoder, &frame_view);
 
         self.gfx.queue.submit([encoder.finish()]);

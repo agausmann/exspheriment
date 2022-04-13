@@ -9,16 +9,9 @@ use crate::{
     geometry::{Geodesic, Icosahedron, Square, Triangle},
     model::{self, Model},
     orbit::{Orbit, State},
+    viewport::Viewport,
     GraphicsContext,
 };
-
-#[derive(Default, Clone, Copy, Pod, Zeroable)]
-#[repr(C)]
-struct Uniforms {
-    view_proj: [[f32; 4]; 4],
-    camera: [f32; 3],
-    _padding: [u8; 4],
-}
 
 #[derive(Default, Clone, Copy, Pod, Zeroable)]
 #[repr(C)]
@@ -44,17 +37,14 @@ pub struct Scene {
     geodesic: Geodesic,
     square: Square,
     pipeline: wgpu::RenderPipeline,
-    bind_group: wgpu::BindGroup,
-    uniform_buffer: wgpu::Buffer,
     instance_buffer: wgpu::Buffer,
-    camera_position: Vec3,
     instances: Vec<Instance>,
     animation_start: Instant,
     orbit: Orbit,
 }
 
 impl Scene {
-    pub fn new(gfx: &GraphicsContext) -> Self {
+    pub fn new(gfx: &GraphicsContext, viewport: &Viewport) -> Self {
         let icos = Icosahedron::new(gfx);
         let triangle = Triangle::new(gfx);
         let square = Square::new(gfx);
@@ -67,14 +57,6 @@ impl Scene {
 
         let instances = vec![Default::default(); 3];
 
-        let uniform_buffer = gfx
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Scene::uniform_buffer"),
-                contents: bytemuck::bytes_of(&Uniforms::default()),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            });
-
         let instance_buffer = gfx
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -83,36 +65,11 @@ impl Scene {
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
 
-        let bind_group_layout =
-            gfx.device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("Scene::bind_group_layout"),
-                    entries: &[wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    }],
-                });
-
-        let bind_group = gfx.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Scene::bind_group"),
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
-        });
-
         let pipeline_layout = gfx
             .device
             .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Scene::pipeline_layout"),
-                bind_group_layouts: &[&bind_group_layout],
+                bind_group_layouts: &[viewport.bind_group_layout()],
                 push_constant_ranges: &[],
             });
 
@@ -175,11 +132,8 @@ impl Scene {
             square,
             geodesic,
             pipeline,
-            bind_group,
-            uniform_buffer,
             instance_buffer,
             instances,
-            camera_position: Vec3::new(0.0, -0.5, 5.0),
             animation_start: Instant::now(),
             orbit,
         }
@@ -217,26 +171,8 @@ impl Scene {
         encoder: &mut wgpu::CommandEncoder,
         frame_view: &wgpu::TextureView,
         depth_view: &wgpu::TextureView,
+        viewport: &Viewport,
     ) {
-        let size = self.gfx.window.inner_size();
-        let projection = Mat4::perspective_rh(
-            75.0_f32.to_radians(),
-            size.width as f32 / size.height as f32,
-            0.1,
-            1000.0,
-        );
-        let camera = Mat4::look_at_rh(self.camera_position, Vec3::new(0.0, 0.0, 1.5), Vec3::Z);
-        let view_proj = projection * camera;
-
-        self.gfx.queue.write_buffer(
-            &self.uniform_buffer,
-            0,
-            bytemuck::bytes_of(&Uniforms {
-                view_proj: view_proj.to_cols_array_2d(),
-                camera: self.camera_position.into(),
-                ..Default::default()
-            }),
-        );
         self.gfx.queue.write_buffer(
             &self.instance_buffer,
             0,
@@ -265,7 +201,7 @@ impl Scene {
             });
 
             render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_bind_group(0, &self.bind_group, &[]);
+            render_pass.set_bind_group(0, viewport.bind_group(), &[]);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.draw_model(&self.square.model, 0..1);
             // render_pass.draw_model(&self.triangle.model, 1..2);
