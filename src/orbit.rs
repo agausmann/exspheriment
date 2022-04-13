@@ -1,4 +1,6 @@
-use std::f32::consts::TAU;
+use std::{cmp::Ordering, f32::consts::TAU};
+
+use glam::Vec2;
 
 #[derive(Clone, Copy)]
 pub struct State {
@@ -11,28 +13,45 @@ impl State {
     pub fn aux(&self) -> Aux {
         // h^2 / mu
         let h2m = self.a * (1.0 - self.e.powi(2));
+        let h = (h2m * self.mu).sqrt();
+
         let t = if self.a < 0.0 {
             None
         } else {
             Some(TAU * (self.a.powi(3) / self.mu).sqrt())
         };
-        let b = if self.e > 1.0 {
-            None
-        } else {
-            Some(self.a * (1.0 - self.e.powi(2)).sqrt())
-        };
+        let alpha = self.a.recip();
+        let b = self.a * (1.0 - self.e.powi(2)).abs().sqrt();
         let rp = h2m / (1.0 + self.e);
         let ra = h2m / (1.0 - self.e);
-        Aux { h2m, t, b, rp, ra }
+
+        let r0 = rp * Vec2::X;
+        let v0 = h / rp * Vec2::Y;
+
+        Aux {
+            h2m,
+            h,
+            t,
+            b,
+            rp,
+            ra,
+            alpha,
+            r0,
+            v0,
+        }
     }
 }
 
 pub struct Aux {
+    pub r0: Vec2,
+    pub v0: Vec2,
     pub h2m: f32,
+    pub h: f32,
     pub t: Option<f32>,
-    pub b: Option<f32>,
+    pub b: f32,
     pub rp: f32,
     pub ra: f32,
+    pub alpha: f32,
 }
 
 pub struct Orbit {
@@ -47,31 +66,64 @@ impl Orbit {
             aux: state.aux(),
         }
     }
-    pub fn radius(&self, theta: f32) -> f32 {
-        self.aux.h2m / (1.0 + self.state.e * theta.cos())
-    }
 
-    pub fn theta(&self, time: f32) -> Option<f32> {
-        let t = self.aux.t?;
-        let me = TAU / t * (time % t);
-        let mut e = me;
-        for n in 1..=20 {
-            e += 2.0 / (n as f32) * j(n, n as f32 * self.state.e) * (n as f32 * me).sin();
+    fn chi(&self, time: f32) -> f32 {
+        let &State { mu, .. } = &self.state;
+        let &Aux { alpha, rp, .. } = &self.aux;
+
+        let mut chi = mu.sqrt() * alpha.abs() * time;
+        // In practice, seems to converge in at most 3 iterations.
+        for _ in 0..3 {
+            let delta = ((1.0 - alpha * rp) * chi.powi(3) * ss(alpha * chi.powi(2)) + rp * chi
+                - mu.sqrt() * time)
+                / ((1.0 - alpha * rp) * chi.powi(2) * sc(alpha * chi.powi(2)) + rp);
+            chi -= delta;
         }
-        let theta =
-            2.0 * ((0.5 * e).tan() * ((1.0 + self.state.e) / (1.0 - self.state.e)).sqrt()).atan();
-        Some(theta)
+        chi
+    }
+
+    pub fn current_position(&self, time: f32) -> Position {
+        let chi = self.chi(time);
+        let &State { mu, .. } = &self.state;
+        let &Aux {
+            alpha, rp, r0, v0, ..
+        } = &self.aux;
+        let z = alpha * chi.powi(2);
+
+        let f = 1.0 - chi.powi(2) / rp * sc(z);
+        let g = time - chi.powi(3) * ss(z) / mu.sqrt();
+        let position = f * r0 + g * v0;
+        let r = position.length();
+
+        let df = mu.sqrt() / (r * rp) * (alpha * chi.powi(3) * ss(z) - chi);
+        let dg = 1.0 - chi.powi(2) / r * sc(z);
+        let velocity = df * r0 + dg * v0;
+
+        Position { position, velocity }
     }
 }
 
-fn j(n: i32, x: f32) -> f32 {
-    let mut acc = 0.0;
-    for k in 0..=20 {
-        acc += (-1.0f32).powi(k) * (0.5 * x).powi(n + 2 * k) / (factorial(k) * factorial(n + k))
-    }
-    acc
+pub struct Position {
+    pub position: Vec2,
+    pub velocity: Vec2,
 }
 
-fn factorial(x: i32) -> f32 {
-    (1..x).map(|y| y as f32).product()
+fn ss(z: f32) -> f32 {
+    let zq = z.abs().sqrt();
+    match z.partial_cmp(&0.0) {
+        None => f32::NAN,
+        Some(Ordering::Equal) => 1.0 / 6.0,
+        Some(Ordering::Greater) => (zq - zq.sin()) / zq.powi(3),
+        Some(Ordering::Less) => (zq.sinh() - zq) / zq.powi(3),
+    }
+}
+
+fn sc(z: f32) -> f32 {
+    let zq = z.abs().sqrt();
+    match z.partial_cmp(&0.0) {
+        None => f32::NAN,
+        Some(Ordering::Equal) => 0.5,
+        Some(Ordering::Greater) => (1.0 - zq.cos()) / z,
+        Some(Ordering::Less) => (zq.cosh() - 1.0) / -z,
+    }
 }

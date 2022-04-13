@@ -191,7 +191,7 @@ impl Hud {
 
         let origin = Vec3::new(-(self.orbit.state.a - self.orbit.aux.rp), 0.0, 1.5);
         let a = self.orbit.state.a;
-        let b = self.orbit.aux.b.unwrap();
+        let b = self.orbit.aux.b;
 
         let mut path_builder = PathBuilder::new();
 

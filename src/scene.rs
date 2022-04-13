@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use wgpu::{include_wgsl, util::DeviceExt};
 
 use crate::{
-    geometry::{Geodesic, Icosahedron, Square, Triangle},
+    geometry::{Geodesic, Square, Triangle},
     model::{self, Model},
     orbit::{Orbit, State},
     viewport::Viewport,
@@ -32,7 +32,6 @@ static INSTANCE_ATTRIBUTES: Lazy<[wgpu::VertexAttribute; 5]> = Lazy::new(|| {
 
 pub struct Scene {
     gfx: GraphicsContext,
-    icos: Icosahedron,
     triangle: Triangle,
     geodesic: Geodesic,
     square: Square,
@@ -45,7 +44,6 @@ pub struct Scene {
 
 impl Scene {
     pub fn new(gfx: &GraphicsContext, viewport: &Viewport) -> Self {
-        let icos = Icosahedron::new(gfx);
         let triangle = Triangle::new(gfx);
         let square = Square::new(gfx);
         let geodesic = Geodesic::with_slerp(gfx, 4);
@@ -127,7 +125,6 @@ impl Scene {
 
         Self {
             gfx: gfx.clone(),
-            icos,
             triangle,
             square,
             geodesic,
@@ -156,12 +153,11 @@ impl Scene {
         self.instances[1].albedo = Vec3::new(0.3, 0.6, 0.9).into();
 
         // Orbiting triangle
-        let theta = self.orbit.theta(t).unwrap();
-        let r = self.orbit.radius(theta);
+        let p = self.orbit.current_position(t);
         self.instances[2].model = Mat4::from_scale_rotation_translation(
             Vec3::splat(0.1),
             Quat::IDENTITY,
-            Vec3::new(r * theta.cos(), r * theta.sin(), 1.5),
+            p.position.extend(1.5),
         )
         .to_cols_array_2d();
         self.instances[2].albedo = Vec3::new(0.9, 0.1, 0.2).into();
@@ -205,8 +201,6 @@ impl Scene {
             render_pass.set_bind_group(0, viewport.bind_group(), &[]);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.draw_model(&self.square.model, 0..1);
-            // render_pass.draw_model(&self.triangle.model, 1..2);
-            // render_pass.draw_model(&self.icos.model, 1..2);
             render_pass.draw_model(&self.geodesic.model, 1..2);
             render_pass.draw_model(&self.triangle.model, 2..3);
         }
