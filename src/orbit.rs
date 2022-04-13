@@ -16,15 +16,21 @@ impl State {
         } else {
             Some(TAU * (self.a.powi(3) / self.mu).sqrt())
         };
+        let b = if self.e > 1.0 {
+            None
+        } else {
+            Some(self.a * (1.0 - self.e.powi(2)).sqrt())
+        };
         let rp = h2m / (1.0 + self.e);
         let ra = h2m / (1.0 - self.e);
-        Aux { h2m, t, rp, ra }
+        Aux { h2m, t, b, rp, ra }
     }
 }
 
 pub struct Aux {
     pub h2m: f32,
     pub t: Option<f32>,
+    pub b: Option<f32>,
     pub rp: f32,
     pub ra: f32,
 }

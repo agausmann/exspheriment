@@ -1,9 +1,13 @@
 use std::{f32::consts::TAU, num::NonZeroU32};
 
-use glam::{Vec2, Vec4, Vec4Swizzles};
+use glam::{Vec2, Vec3, Vec4Swizzles};
 use tiny_skia::{Paint, PathBuilder, Pixmap, Stroke, Transform};
 
-use crate::{viewport::Viewport, GraphicsContext};
+use crate::{
+    orbit::{Orbit, State},
+    viewport::Viewport,
+    GraphicsContext,
+};
 
 pub struct Hud {
     gfx: GraphicsContext,
@@ -14,10 +18,17 @@ pub struct Hud {
     bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
     pipeline: wgpu::RenderPipeline,
+    orbit: Orbit,
 }
 
 impl Hud {
     pub fn new(gfx: &GraphicsContext) -> Self {
+        let orbit = Orbit::new(State {
+            mu: 3.0,
+            e: 0.4,
+            a: 2.0,
+        });
+
         let size = gfx.window.inner_size();
         let pixmap = Pixmap::new(size.width, size.height).unwrap();
         let texture = gfx.device.create_texture(&wgpu::TextureDescriptor {
@@ -124,6 +135,7 @@ impl Hud {
             bind_group_layout,
             bind_group,
             pipeline,
+            orbit,
         }
     }
 
@@ -177,12 +189,16 @@ impl Hud {
         let scale = 0.5 * Vec2::new(width, -height);
         let translate = 0.5 * Vec2::new(width, height);
 
+        let origin = Vec3::new(-(self.orbit.state.a - self.orbit.aux.rp), 0.0, 1.5);
+        let a = self.orbit.state.a;
+        let b = self.orbit.aux.b.unwrap();
+
         let mut path_builder = PathBuilder::new();
 
         for i in 0..100 {
             let k = (i as f32) / 100.0 * TAU;
-            let point = Vec4::new(1.5 * k.cos(), 1.5 * k.sin(), 1.5, 1.0);
-            let clip = view_proj * point;
+            let point = origin + Vec3::new(a * k.cos(), b * k.sin(), 0.0);
+            let clip = view_proj * point.extend(1.0);
             let normalized = clip.xy() / clip.w;
             let screen = normalized * scale + translate;
 
@@ -196,9 +212,9 @@ impl Hud {
         let path = path_builder.finish().unwrap();
 
         let mut paint = Paint::default();
-        paint.set_color_rgba8(127, 96, 64, 255);
+        paint.set_color_rgba8(127, 96, 64, 192);
         let mut stroke = Stroke::default();
-        stroke.width = 5.0;
+        stroke.width = 2.0;
 
         self.pixmap
             .stroke_path(&path, &paint, &stroke, Transform::identity(), None);

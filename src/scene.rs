@@ -140,12 +140,13 @@ impl Scene {
     }
 
     pub fn update(&mut self) {
+        let t = self.animation_start.elapsed().as_secs_f32();
+
         // Square
         self.instances[0].model = Mat4::IDENTITY.to_cols_array_2d();
         self.instances[0].albedo = Vec3::new(0.3, 0.6, 0.9).into();
 
-        //Triangle
-        let t = self.animation_start.elapsed().as_secs_f32();
+        //Rotating icosahedron
         self.instances[1].model = Mat4::from_scale_rotation_translation(
             Vec3::splat(0.8),
             Quat::from_rotation_z(TAU * t / 20.0),
@@ -154,16 +155,16 @@ impl Scene {
         .to_cols_array_2d();
         self.instances[1].albedo = Vec3::new(0.3, 0.6, 0.9).into();
 
-        // Orbiting
+        // Orbiting triangle
         let theta = self.orbit.theta(t).unwrap();
         let r = self.orbit.radius(theta);
         self.instances[2].model = Mat4::from_scale_rotation_translation(
             Vec3::splat(0.1),
-            Quat::from_rotation_x(-TAU / 4.0),
+            Quat::IDENTITY,
             Vec3::new(r * theta.cos(), r * theta.sin(), 1.5),
         )
         .to_cols_array_2d();
-        self.instances[2].albedo = Vec3::new(0.3, 0.4, 0.5).into();
+        self.instances[2].albedo = Vec3::new(0.9, 0.1, 0.2).into();
     }
 
     pub fn draw(
