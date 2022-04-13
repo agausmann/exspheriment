@@ -1,10 +1,12 @@
 mod geometry;
+mod hud;
 mod math;
 mod model;
 mod orbit;
 mod scene;
 
 use anyhow::Context;
+use hud::Hud;
 use pollster::block_on;
 use scene::Scene;
 use std::sync::Arc;
@@ -79,6 +81,7 @@ impl GraphicsContextInner {
 struct App {
     gfx: GraphicsContext,
     scene: Scene,
+    hud: Hud,
 }
 
 impl App {
@@ -87,8 +90,9 @@ impl App {
         gfx.reconfigure();
 
         let scene = Scene::new(&gfx);
+        let hud = Hud::new(&gfx);
 
-        Ok(Self { gfx, scene })
+        Ok(Self { gfx, hud, scene })
     }
 
     fn update(&mut self) {
@@ -137,6 +141,7 @@ impl App {
         let depth_view = depth_texture.create_view(&Default::default());
         let mut encoder = self.gfx.device.create_command_encoder(&Default::default());
         self.scene.draw(&mut encoder, &frame_view, &depth_view);
+        self.hud.draw(&mut encoder, &frame_view);
 
         self.gfx.queue.submit([encoder.finish()]);
         frame.present();
@@ -146,6 +151,7 @@ impl App {
 
     fn window_resized(&mut self) {
         self.gfx.reconfigure();
+        self.hud.resized();
     }
 }
 
