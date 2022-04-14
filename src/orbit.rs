@@ -1,127 +1,120 @@
-use std::{cmp::Ordering, f32::consts::TAU};
+use std::cmp::Ordering;
 
-use glam::Vec2;
+use glam::DVec2;
 
-#[derive(Clone, Copy)]
-pub struct State {
-    pub mu: f32,
-    pub e: f32,
-    pub a: f32,
-}
-
-impl State {
-    pub fn aux(&self) -> Aux {
-        // h^2 / mu
-        let h2m = self.a * (1.0 - self.e.powi(2));
-        let h = (h2m * self.mu).sqrt();
-
-        let t = if self.a < 0.0 {
-            None
-        } else {
-            Some(TAU * (self.a.powi(3) / self.mu).sqrt())
-        };
-        let alpha = self.a.recip();
-        let b = self.a * (1.0 - self.e.powi(2)).abs().sqrt();
-        let rp = h2m / (1.0 + self.e);
-        let ra = h2m / (1.0 - self.e);
-
-        let r0 = rp * Vec2::X;
-        let v0 = h / rp * Vec2::Y;
-
-        Aux {
-            h2m,
-            h,
-            t,
-            b,
-            rp,
-            ra,
-            alpha,
-            r0,
-            v0,
-        }
-    }
-}
-
-pub struct Aux {
-    pub r0: Vec2,
-    pub v0: Vec2,
-    pub h2m: f32,
-    pub h: f32,
-    pub t: Option<f32>,
-    pub b: f32,
-    pub rp: f32,
-    pub ra: f32,
-    pub alpha: f32,
-}
-
+#[derive(Debug, Clone, Copy)]
 pub struct Orbit {
-    pub state: State,
-    pub aux: Aux,
+    // Eccentricity
+    e: f64,
+    /// Parameter, or semi-latus rectum
+    p: f64,
+    /// Gravitational parameter `G * (m1 + m2)`
+    grav: f64,
 }
 
 impl Orbit {
-    pub fn new(state: State) -> Self {
-        Self {
-            state,
-            aux: state.aux(),
-        }
+    pub fn new(e: f64, p: f64, grav: f64) -> Self {
+        Self { e, p, grav }
     }
 
-    fn chi(&self, time: f32) -> f32 {
-        let &State { mu, .. } = &self.state;
-        let &Aux { alpha, rp, .. } = &self.aux;
+    /// Apoapsis
+    pub fn ra(&self) -> f64 {
+        self.p / (1.0 - self.e)
+    }
 
-        let mut chi = mu.sqrt() * alpha.abs() * time;
-        // In practice, seems to converge in at most 3 iterations.
-        for _ in 0..3 {
+    /// Periapsis
+    pub fn rp(&self) -> f64 {
+        self.p / (1.0 + self.e)
+    }
+
+    /// Semi-major axis
+    pub fn a(&self) -> f64 {
+        self.p / (1.0 - self.e.powi(2))
+    }
+
+    /// Semi-minor axis
+    pub fn b(&self) -> f64 {
+        self.p / (1.0 - self.e.powi(2)).sqrt()
+    }
+
+    pub fn radius_at(&self, angle: f64) -> f64 {
+        self.p / (1.0 + self.e * angle.cos())
+    }
+
+    /// Reciprocal of semi-major axis:
+    /// > 0: Ellipse
+    /// = 0: Parabola
+    /// < 0: Hyperbola
+    fn alpha(&self) -> f64 {
+        (1.0 - self.e.powi(2)) / self.p
+    }
+
+    /// Specific angular momentum
+    fn h(&self) -> f64 {
+        (self.p * self.grav).sqrt()
+    }
+
+    fn chi(&self, time: f64) -> f64 {
+        let &Self { grav, .. } = self;
+        let alpha = self.alpha();
+        let rp = self.rp();
+
+        let mut chi = grav.sqrt() * alpha.abs() * time;
+        for _ in 0..100 {
             let delta = ((1.0 - alpha * rp) * chi.powi(3) * ss(alpha * chi.powi(2)) + rp * chi
-                - mu.sqrt() * time)
+                - grav.sqrt() * time)
                 / ((1.0 - alpha * rp) * chi.powi(2) * sc(alpha * chi.powi(2)) + rp);
             chi -= delta;
+            if delta < 1e-10 {
+                break;
+            }
         }
         chi
     }
 
-    pub fn current_position(&self, time: f32) -> Position {
+    pub fn current_position(&self, time: f64) -> State {
         let chi = self.chi(time);
-        let &State { mu, .. } = &self.state;
-        let &Aux {
-            alpha, rp, r0, v0, ..
-        } = &self.aux;
+
+        let &Self { grav, .. } = self;
+        let alpha = self.alpha();
+        let rp = self.rp();
+        let r0 = rp * DVec2::X;
+        let v0 = self.h() / rp * DVec2::Y;
+
         let z = alpha * chi.powi(2);
 
         let f = 1.0 - chi.powi(2) / rp * sc(z);
-        let g = time - chi.powi(3) * ss(z) / mu.sqrt();
+        let g = time - chi.powi(3) * ss(z) / grav.sqrt();
         let position = f * r0 + g * v0;
         let r = position.length();
 
-        let df = mu.sqrt() / (r * rp) * (alpha * chi.powi(3) * ss(z) - chi);
+        let df = grav.sqrt() / (r * rp) * (alpha * chi.powi(3) * ss(z) - chi);
         let dg = 1.0 - chi.powi(2) / r * sc(z);
         let velocity = df * r0 + dg * v0;
 
-        Position { position, velocity }
+        State { position, velocity }
     }
 }
 
-pub struct Position {
-    pub position: Vec2,
-    pub velocity: Vec2,
+pub struct State {
+    pub position: DVec2,
+    pub velocity: DVec2,
 }
 
-fn ss(z: f32) -> f32 {
+fn ss(z: f64) -> f64 {
     let zq = z.abs().sqrt();
     match z.partial_cmp(&0.0) {
-        None => f32::NAN,
+        None => f64::NAN,
         Some(Ordering::Equal) => 1.0 / 6.0,
         Some(Ordering::Greater) => (zq - zq.sin()) / zq.powi(3),
         Some(Ordering::Less) => (zq.sinh() - zq) / zq.powi(3),
     }
 }
 
-fn sc(z: f32) -> f32 {
+fn sc(z: f64) -> f64 {
     let zq = z.abs().sqrt();
     match z.partial_cmp(&0.0) {
-        None => f32::NAN,
+        None => f64::NAN,
         Some(Ordering::Equal) => 0.5,
         Some(Ordering::Greater) => (1.0 - zq.cos()) / z,
         Some(Ordering::Less) => (zq.cosh() - 1.0) / -z,

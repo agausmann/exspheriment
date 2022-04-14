@@ -8,7 +8,7 @@ use wgpu::{include_wgsl, util::DeviceExt};
 use crate::{
     geometry::{Geodesic, Square, Triangle},
     model::{self, Model},
-    orbit::{Orbit, State},
+    orbit::Orbit,
     viewport::Viewport,
     GraphicsContext,
 };
@@ -47,11 +47,7 @@ impl Scene {
         let triangle = Triangle::new(gfx);
         let square = Square::new(gfx);
         let geodesic = Geodesic::with_slerp(gfx, 4);
-        let orbit = Orbit::new(State {
-            mu: 3.0,
-            e: 0.4,
-            a: 2.0,
-        });
+        let orbit = Orbit::new(0.4, 1.5, 3.0);
 
         let instances = vec![Default::default(); 3];
 
@@ -137,7 +133,7 @@ impl Scene {
     }
 
     pub fn update(&mut self) {
-        let t = self.animation_start.elapsed().as_secs_f32();
+        let t = self.animation_start.elapsed().as_secs_f64();
 
         // Square
         self.instances[0].model = Mat4::IDENTITY.to_cols_array_2d();
@@ -146,7 +142,7 @@ impl Scene {
         //Rotating icosahedron
         self.instances[1].model = Mat4::from_scale_rotation_translation(
             Vec3::splat(0.8),
-            Quat::from_rotation_z(TAU * t / 20.0),
+            Quat::from_rotation_z(TAU * t as f32 / 20.0),
             Vec3::new(0.0, 0.0, 1.5),
         )
         .to_cols_array_2d();
@@ -157,7 +153,7 @@ impl Scene {
         self.instances[2].model = Mat4::from_scale_rotation_translation(
             Vec3::splat(0.1),
             Quat::IDENTITY,
-            p.position.extend(1.5),
+            p.position.as_vec2().extend(1.5),
         )
         .to_cols_array_2d();
         self.instances[2].albedo = Vec3::new(0.9, 0.1, 0.2).into();
