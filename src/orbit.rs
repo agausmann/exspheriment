@@ -17,6 +17,24 @@ impl Orbit {
         Self { e, p, grav }
     }
 
+    pub fn from_apsides(ra: f64, rp: f64, grav: f64) -> Self {
+        let e = (ra - rp) / (ra + rp);
+        let p = rp * (1.0 + e);
+        Self::new(e, p, grav)
+    }
+
+    pub fn is_elliptic(&self) -> bool {
+        self.e < 1.0
+    }
+
+    pub fn is_parabolic(&self) -> bool {
+        self.e == 1.0
+    }
+
+    pub fn is_hyperbolic(&self) -> bool {
+        self.e > 1.0
+    }
+
     /// Apoapsis
     pub fn ra(&self) -> f64 {
         self.p / (1.0 - self.e)
@@ -65,7 +83,7 @@ impl Orbit {
                 - grav.sqrt() * time)
                 / ((1.0 - alpha * rp) * chi.powi(2) * sc(alpha * chi.powi(2)) + rp);
             chi -= delta;
-            if delta < 1e-10 {
+            if delta.abs() < 1e-10 {
                 break;
             }
         }

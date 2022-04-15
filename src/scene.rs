@@ -39,7 +39,9 @@ pub struct Scene {
     instance_buffer: wgpu::Buffer,
     instances: Vec<Instance>,
     animation_start: Instant,
-    orbit: Orbit,
+    ellipse: Orbit,
+    parabola: Orbit,
+    hyperbola: Orbit,
 }
 
 impl Scene {
@@ -47,9 +49,11 @@ impl Scene {
         let triangle = Triangle::new(gfx);
         let square = Square::new(gfx);
         let geodesic = Geodesic::with_slerp(gfx, 4);
-        let orbit = Orbit::new(0.4, 1.5, 3.0);
+        let parabola = Orbit::new(1.0, 2.0, 3.0);
+        let ellipse = Orbit::new(0.5, 2.0, 3.0);
+        let hyperbola = Orbit::new(1.5, 2.0, 3.0);
 
-        let instances = vec![Default::default(); 3];
+        let instances = vec![Default::default(); 5];
 
         let instance_buffer = gfx
             .device
@@ -128,7 +132,9 @@ impl Scene {
             instance_buffer,
             instances,
             animation_start: Instant::now(),
-            orbit,
+            ellipse,
+            parabola,
+            hyperbola,
         }
     }
 
@@ -148,15 +154,33 @@ impl Scene {
         .to_cols_array_2d();
         self.instances[1].albedo = Vec3::new(0.3, 0.6, 0.9).into();
 
-        // Orbiting triangle
-        let p = self.orbit.current_position(t);
+        // Orbiting triangles
+        let p = self.ellipse.current_position(t - 2.0);
         self.instances[2].model = Mat4::from_scale_rotation_translation(
             Vec3::splat(0.1),
-            Quat::IDENTITY,
+            Quat::from_rotation_x(-TAU / 4.0),
             p.position.as_vec2().extend(1.5),
         )
         .to_cols_array_2d();
         self.instances[2].albedo = Vec3::new(0.9, 0.1, 0.2).into();
+
+        let p = self.parabola.current_position(t - 2.0);
+        self.instances[3].model = Mat4::from_scale_rotation_translation(
+            Vec3::splat(0.1),
+            Quat::from_rotation_x(-TAU / 4.0),
+            p.position.as_vec2().extend(1.5),
+        )
+        .to_cols_array_2d();
+        self.instances[3].albedo = Vec3::new(0.2, 0.9, 0.1).into();
+
+        let p = self.hyperbola.current_position(t - 2.0);
+        self.instances[4].model = Mat4::from_scale_rotation_translation(
+            Vec3::splat(0.1),
+            Quat::from_rotation_x(-TAU / 4.0),
+            p.position.as_vec2().extend(1.5),
+        )
+        .to_cols_array_2d();
+        self.instances[4].albedo = Vec3::new(0.1, 0.2, 0.9).into();
     }
 
     pub fn draw(
@@ -198,7 +222,7 @@ impl Scene {
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.draw_model(&self.square.model, 0..1);
             render_pass.draw_model(&self.geodesic.model, 1..2);
-            render_pass.draw_model(&self.triangle.model, 2..3);
+            render_pass.draw_model(&self.triangle.model, 2..5);
         }
     }
 }
