@@ -1,9 +1,9 @@
 use std::cmp::Ordering;
 
-use glam::DVec2;
+use glam::{DQuat, DVec2, DVec3};
 
 #[derive(Debug, Clone, Copy)]
-pub struct Orbit {
+pub struct Orbit2D {
     // Eccentricity
     e: f64,
     /// Parameter, or semi-latus rectum
@@ -12,7 +12,7 @@ pub struct Orbit {
     grav: f64,
 }
 
-impl Orbit {
+impl Orbit2D {
     pub fn new(e: f64, p: f64, grav: f64) -> Self {
         Self { e, p, grav }
     }
@@ -90,7 +90,7 @@ impl Orbit {
         chi
     }
 
-    pub fn current_position(&self, time: f64) -> State {
+    pub fn current_state(&self, time: f64) -> State2D {
         let chi = self.chi(time);
 
         let &Self { grav, .. } = self;
@@ -110,11 +110,11 @@ impl Orbit {
         let dg = 1.0 - chi.powi(2) / r * sc(z);
         let velocity = df * r0 + dg * v0;
 
-        State { position, velocity }
+        State2D { position, velocity }
     }
 }
 
-pub struct State {
+pub struct State2D {
     pub position: DVec2,
     pub velocity: DVec2,
 }
@@ -137,4 +137,65 @@ fn sc(z: f64) -> f64 {
         Some(Ordering::Greater) => (1.0 - zq.cos()) / z,
         Some(Ordering::Less) => (zq.cosh() - 1.0) / -z,
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Orbit3D {
+    shape: Orbit2D,
+
+    /// Argument of periapsis relative to ascending node (radians)
+    arg_pe: f64,
+
+    /// Inclination (radians)
+    inc: f64,
+
+    /// Longitude of ascending node relative to +X (radians)
+    lan: f64,
+}
+
+impl Orbit3D {
+    pub fn new(shape: Orbit2D, arg_pe: f64, inc: f64, lan: f64) -> Self {
+        Self {
+            shape,
+            arg_pe,
+            inc,
+            lan,
+        }
+    }
+
+    pub fn from_current_state(position: DVec3, velocity: DVec3) -> Self {
+        todo!()
+    }
+
+    pub fn shape(&self) -> &Orbit2D {
+        &self.shape
+    }
+
+    pub fn a_vector(&self) -> DVec3 {
+        self.shape.a() * (self.orientation() * DVec3::X)
+    }
+
+    pub fn b_vector(&self) -> DVec3 {
+        self.shape.b() * (self.orientation() * DVec3::Y)
+    }
+
+    fn orientation(&self) -> DQuat {
+        return DQuat::from_rotation_z(self.lan)
+            * DQuat::from_rotation_x(self.inc)
+            * DQuat::from_rotation_z(self.arg_pe);
+    }
+
+    pub fn current_state(&self, time: f64) -> State3D {
+        let xf = self.orientation();
+        let state_2d = self.shape.current_state(time);
+        State3D {
+            position: xf * state_2d.position.extend(0.0),
+            velocity: xf * state_2d.velocity.extend(0.0),
+        }
+    }
+}
+
+pub struct State3D {
+    pub position: DVec3,
+    pub velocity: DVec3,
 }

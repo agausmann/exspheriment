@@ -1,9 +1,13 @@
-use std::{f32::consts::TAU, num::NonZeroU32};
+use std::{f32::consts as f32, f64::consts as f64, num::NonZeroU32};
 
 use glam::{Vec2, Vec3, Vec4Swizzles};
 use tiny_skia::{Paint, PathBuilder, Pixmap, Stroke, Transform};
 
-use crate::{orbit::Orbit, viewport::Viewport, GraphicsContext};
+use crate::{
+    orbit::{Orbit2D, Orbit3D},
+    viewport::Viewport,
+    GraphicsContext,
+};
 
 pub struct Hud {
     gfx: GraphicsContext,
@@ -14,12 +18,17 @@ pub struct Hud {
     bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
     pipeline: wgpu::RenderPipeline,
-    orbit: Orbit,
+    orbit: Orbit3D,
 }
 
 impl Hud {
     pub fn new(gfx: &GraphicsContext) -> Self {
-        let orbit = Orbit::new(0.4, 1.5, 3.0);
+        let orbit = Orbit3D::new(
+            Orbit2D::new(0.5, 2.0, 3.0),
+            f64::TAU / 4.0,
+            f64::TAU / 8.0,
+            0.0,
+        );
 
         let size = gfx.window.inner_size();
         let pixmap = Pixmap::new(size.width, size.height).unwrap();
@@ -181,15 +190,18 @@ impl Hud {
         let scale = 0.5 * Vec2::new(width, -height);
         let translate = 0.5 * Vec2::new(width, height);
 
-        let origin = Vec3::new(-(self.orbit.a() - self.orbit.rp()) as f32, 0.0, 1.5);
-        let a = self.orbit.a() as f32;
-        let b = self.orbit.b() as f32;
+        let origin = (self.orbit.a_vector()
+            * (self.orbit.shape().rp() / self.orbit.shape().a() - 1.0))
+            .as_vec3()
+            + Vec3::new(0.0, 0.0, 1.5);
+        let a = self.orbit.a_vector().as_vec3();
+        let b = self.orbit.b_vector().as_vec3();
 
         let mut path_builder = PathBuilder::new();
 
         for i in 0..100 {
-            let k = (i as f32) / 100.0 * TAU;
-            let point = origin + Vec3::new(a * k.cos(), b * k.sin(), 0.0);
+            let k = (i as f32) / 100.0 * f32::TAU;
+            let point = origin + a * k.cos() + b * k.sin();
             let clip = view_proj * point.extend(1.0);
             let normalized = clip.xy() / clip.w;
             let screen = normalized * scale + translate;

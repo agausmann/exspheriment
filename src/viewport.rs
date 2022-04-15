@@ -61,7 +61,7 @@ impl Viewport {
             bind_group_layout,
             bind_group,
             uniform_buffer,
-            camera_position: Vec3::new(0.0, -0.5, 5.0),
+            camera_position: Vec3::new(3.0, -1.0, 2.0) * 2.0,
             look_at: Vec3::new(0.0, 0.0, 1.5),
         }
     }
