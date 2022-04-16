@@ -8,7 +8,7 @@ use wgpu::{include_wgsl, util::DeviceExt};
 use crate::{
     geometry::{Geodesic, Square, Triangle},
     model::{self, Model},
-    orbit::{Orbit2D, Orbit3D},
+    orbit::{Orbit2D, Orbit3D, State3D},
     time::{SimDuration, SimInstant},
     viewport::Viewport,
     GraphicsContext,
@@ -40,7 +40,8 @@ pub struct Scene {
     instance_buffer: wgpu::Buffer,
     instances: Vec<Instance>,
     animation_start: Instant,
-    orbit: Orbit3D,
+    pub orbit: Orbit3D,
+    pub state: Option<State3D>,
 }
 
 impl Scene {
@@ -52,8 +53,8 @@ impl Scene {
             Orbit2D::new(
                 0.5,
                 2.0,
-                SimInstant::epoch() + SimDuration::from_secs_f64(2.0),
-                3.0,
+                SimInstant::epoch() + SimDuration::from_secs_f64(30.0),
+                1.0,
             ),
             f64::TAU / 4.0,
             f64::TAU / 8.0,
@@ -140,10 +141,11 @@ impl Scene {
             instances,
             animation_start: Instant::now(),
             orbit,
+            state: None,
         }
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, viewport: &Viewport) {
         let t = self.animation_start.elapsed();
 
         // Square
@@ -160,10 +162,17 @@ impl Scene {
         self.instances[1].albedo = Vec3::new(0.3, 0.6, 0.9).into();
 
         // Orbiting triangles
-        let state = self.orbit.current_state(SimInstant::epoch() + t.into());
+        let mut state = self.orbit.current_state(SimInstant::epoch() + t.into());
+        let orientation = state.position.cross(state.velocity).normalize();
+        state.velocity += orientation * 0.001;
+        self.state = Some(state);
+        self.orbit = Orbit3D::from_current_state(&state, self.orbit.shape().grav());
         self.instances[2].model = Mat4::from_scale_rotation_translation(
             Vec3::splat(0.1),
-            Quat::from_rotation_x(-f32::TAU / 4.0),
+            Quat::from_rotation_arc(
+                -Vec3::Y,
+                (viewport.camera_pos() - state.position.as_vec3()).normalize(),
+            ),
             state.position.as_vec3() + Vec3::new(0.0, 0.0, 1.5),
         )
         .to_cols_array_2d();
@@ -207,7 +216,7 @@ impl Scene {
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, viewport.bind_group(), &[]);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.draw_model(&self.square.model, 0..1);
+            // render_pass.draw_model(&self.square.model, 0..1);
             render_pass.draw_model(&self.geodesic.model, 1..2);
             render_pass.draw_model(&self.triangle.model, 2..3);
         }

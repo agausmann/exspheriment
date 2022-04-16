@@ -107,7 +107,9 @@ impl App {
 
     fn update(&mut self) {
         self.viewport.update();
-        self.scene.update();
+        self.scene.update(&self.viewport);
+        self.hud.orbit = self.scene.orbit;
+        self.hud.state = self.scene.state;
     }
 
     fn redraw(&mut self) -> anyhow::Result<()> {

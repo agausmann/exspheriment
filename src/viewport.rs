@@ -74,6 +74,10 @@ impl Viewport {
         &self.bind_group
     }
 
+    pub fn camera_pos(&self) -> Vec3 {
+        self.camera_position
+    }
+
     pub fn update(&mut self) {
         self.gfx.queue.write_buffer(
             &self.uniform_buffer,

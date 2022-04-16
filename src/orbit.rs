@@ -156,6 +156,7 @@ impl Orbit2D {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct State2D {
     pub position: DVec2,
     pub velocity: DVec2,
@@ -301,6 +302,7 @@ impl Orbit3D {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct State3D {
     pub position: DVec3,
     pub velocity: DVec3,

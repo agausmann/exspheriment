@@ -1,10 +1,10 @@
 use std::{f32::consts as f32, f64::consts as f64, num::NonZeroU32};
 
 use glam::{Vec2, Vec3, Vec4Swizzles};
-use tiny_skia::{Paint, PathBuilder, Pixmap, Stroke, Transform};
+use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Stroke, Transform};
 
 use crate::{
-    orbit::{Orbit2D, Orbit3D},
+    orbit::{Orbit2D, Orbit3D, State3D},
     time::SimInstant,
     viewport::Viewport,
     GraphicsContext,
@@ -19,7 +19,8 @@ pub struct Hud {
     bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
     pipeline: wgpu::RenderPipeline,
-    orbit: Orbit3D,
+    pub orbit: Orbit3D,
+    pub state: Option<State3D>,
 }
 
 impl Hud {
@@ -138,6 +139,7 @@ impl Hud {
             bind_group,
             pipeline,
             orbit,
+            state: None,
         }
     }
 
@@ -191,6 +193,19 @@ impl Hud {
         let scale = 0.5 * Vec2::new(width, -height);
         let translate = 0.5 * Vec2::new(width, height);
 
+        let map_3d = |point: Vec3| {
+            let clip = view_proj * point.extend(1.0);
+            let normalized = clip.xy() / clip.w;
+            let screen = normalized * scale + translate;
+            screen
+        };
+
+        self.pixmap.fill(Color::TRANSPARENT);
+
+        let mut stroke = Stroke::default();
+        let mut paint = Paint::default();
+        stroke.width = 2.0;
+
         let origin = (self.orbit.a_vector()
             * (self.orbit.shape().rp() / self.orbit.shape().a() - 1.0))
             .as_vec3()
@@ -198,31 +213,61 @@ impl Hud {
         let a = self.orbit.a_vector().as_vec3();
         let b = self.orbit.b_vector().as_vec3();
 
-        let mut path_builder = PathBuilder::new();
+        let mut orbit_path = PathBuilder::new();
 
-        for i in 0..100 {
+        dbg!(&self.orbit);
+        for i in 0..500 {
             let k = (i as f32) / 100.0 * f32::TAU;
-            let point = origin + a * k.cos() + b * k.sin();
-            let clip = view_proj * point.extend(1.0);
-            let normalized = clip.xy() / clip.w;
-            let screen = normalized * scale + translate;
+            let point = map_3d(origin + a * k.cos() + b * k.sin());
 
             if i == 0 {
-                path_builder.move_to(screen.x, screen.y);
+                orbit_path.move_to(point.x, point.y);
             } else {
-                path_builder.line_to(screen.x, screen.y);
+                orbit_path.line_to(point.x, point.y);
             }
         }
-        path_builder.close();
-        let path = path_builder.finish().unwrap();
+        orbit_path.close();
 
-        let mut paint = Paint::default();
-        paint.set_color_rgba8(127, 96, 64, 192);
-        let mut stroke = Stroke::default();
-        stroke.width = 2.0;
+        if let Some(path) = orbit_path.finish() {
+            paint.set_color_rgba8(127, 96, 64, 192);
+            self.pixmap
+                .stroke_path(&path, &paint, &stroke, Transform::identity(), None);
+        }
 
-        self.pixmap
-            .stroke_path(&path, &paint, &stroke, Transform::identity(), None);
+        if let Some(state) = &self.state {
+            let position = state.position.as_vec3() + Vec3::new(0.0, 0.0, 1.5);
+
+            let base = map_3d(position);
+            let tip = map_3d(position + state.velocity.as_vec3());
+            let mut vel_path = PathBuilder::new();
+            vel_path.move_to(base.x, base.y);
+            vel_path.line_to(tip.x, tip.y);
+
+            paint.set_color_rgba8(0, 255, 0, 255);
+            self.pixmap.stroke_path(
+                &vel_path.finish().unwrap(),
+                &paint,
+                &stroke,
+                Transform::identity(),
+                None,
+            );
+
+            let accel = state.position.cross(state.velocity).as_vec3().normalize();
+            let base = map_3d(position);
+            let tip = map_3d(position + accel);
+            let mut accel_path = PathBuilder::new();
+            accel_path.move_to(base.x, base.y);
+            accel_path.line_to(tip.x, tip.y);
+
+            paint.set_color_rgba8(0, 0, 255, 255);
+            self.pixmap.stroke_path(
+                &accel_path.finish().unwrap(),
+                &paint,
+                &stroke,
+                Transform::identity(),
+                None,
+            );
+        }
 
         self.gfx.queue.write_texture(
             wgpu::ImageCopyTexture {
