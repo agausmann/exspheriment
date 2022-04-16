@@ -132,13 +132,18 @@ impl Orbit2D {
         let dg = 1.0 - chi.powi(2) / r * sc(z);
         let velocity = df * r0 + dg * v0;
 
-        State2D { position, velocity }
+        State2D {
+            position,
+            velocity,
+            time,
+        }
     }
 }
 
 pub struct State2D {
     pub position: DVec2,
     pub velocity: DVec2,
+    pub time: SimInstant,
 }
 
 fn ss(z: f64) -> f64 {
@@ -185,8 +190,71 @@ impl Orbit3D {
         }
     }
 
-    pub fn from_current_state(position: DVec3, velocity: DVec3) -> Self {
-        todo!()
+    pub fn from_current_state(state: &State3D, grav: f64) -> Self {
+        let &State3D {
+            position: r,
+            velocity: v,
+            ..
+        } = state;
+        let r_mag = r.length();
+        let v_mag = v.length();
+
+        let h = r.cross(v);
+        let n = DVec3::Z.cross(h);
+        let e = ((v_mag.powi(2) - grav / r_mag) * r - r_mag * v_mag * v) / grav;
+        let h_mag = h.length();
+        let n_mag = n.length();
+        let e_mag = e.length();
+
+        let inc = (h.z / h_mag).acos();
+
+        let half_lan = (n.x / n_mag).acos();
+        let lan = if n.y >= 0.0 { half_lan } else { TAU - half_lan };
+
+        let half_arg_pe = (n.dot(e) / (n_mag * e_mag)).acos();
+        let arg_pe = if e.z >= 0.0 {
+            half_arg_pe
+        } else {
+            TAU - half_arg_pe
+        };
+
+        let p = h_mag.powi(2) / grav;
+        let a = p / (1.0 - e_mag.powi(2));
+
+        let half_theta = (e.dot(r) / (e_mag * r_mag)).acos();
+        let theta = if r.dot(v) >= 0.0 {
+            half_theta
+        } else {
+            TAU - half_theta
+        };
+
+        let t = match e_mag.partial_cmp(&1.0) {
+            Some(Ordering::Less) => {
+                // Elliptical
+                let ea =
+                    2.0 * (((1.0 - e_mag) / (1.0 + e_mag)).sqrt() * (theta / 2.0).tan()).atan();
+                let ma = ea - e_mag * ea.sin();
+                ma * (a.powi(3) / grav).sqrt()
+            }
+            Some(Ordering::Greater) => {
+                // Hyperbolic
+                let fa =
+                    2.0 * (((1.0 - e_mag) / (1.0 + e_mag)).sqrt() * (theta / 2.0).tanh()).atanh();
+                let ma = e_mag * fa.sinh() - fa;
+                ma * (a.powi(3) / grav).abs().sqrt()
+            }
+            Some(Ordering::Equal) => {
+                // Parabolic
+                let da = (theta / 2.0).tan();
+                let ma = da + da.powi(3) / 3.0;
+                let q = p / (1.0 - e_mag);
+                ma * (q.powi(3) / grav).sqrt()
+            }
+            None => panic!("invalid parameter e={}", e),
+        };
+        let t0 = state.time - SimDuration::from_secs_f64(t);
+
+        Self::new(Orbit2D::new(e_mag, p, t0, grav), arg_pe, inc, lan)
     }
 
     pub fn shape(&self) -> &Orbit2D {
@@ -213,6 +281,7 @@ impl Orbit3D {
         State3D {
             position: xf * state_2d.position.extend(0.0),
             velocity: xf * state_2d.velocity.extend(0.0),
+            time: state_2d.time,
         }
     }
 }
@@ -220,4 +289,5 @@ impl Orbit3D {
 pub struct State3D {
     pub position: DVec3,
     pub velocity: DVec3,
+    pub time: SimInstant,
 }
