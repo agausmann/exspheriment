@@ -1,6 +1,8 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, f64::consts::TAU};
 
 use glam::{DQuat, DVec2, DVec3};
+
+use crate::time::{SimDuration, SimInstant};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Orbit2D {
@@ -8,19 +10,21 @@ pub struct Orbit2D {
     e: f64,
     /// Parameter, or semi-latus rectum
     p: f64,
+    /// Time at periapsis
+    t0: SimInstant,
     /// Gravitational parameter `G * (m1 + m2)`
     grav: f64,
 }
 
 impl Orbit2D {
-    pub fn new(e: f64, p: f64, grav: f64) -> Self {
-        Self { e, p, grav }
+    pub fn new(e: f64, p: f64, t0: SimInstant, grav: f64) -> Self {
+        Self { e, p, t0, grav }
     }
 
-    pub fn from_apsides(ra: f64, rp: f64, grav: f64) -> Self {
+    pub fn from_apsides(ra: f64, rp: f64, t0: SimInstant, grav: f64) -> Self {
         let e = (ra - rp) / (ra + rp);
         let p = rp * (1.0 + e);
-        Self::new(e, p, grav)
+        Self::new(e, p, t0, grav)
     }
 
     pub fn is_elliptic(&self) -> bool {
@@ -59,10 +63,7 @@ impl Orbit2D {
         self.p / (1.0 + self.e * angle.cos())
     }
 
-    /// Reciprocal of semi-major axis:
-    /// > 0: Ellipse
-    /// = 0: Parabola
-    /// < 0: Hyperbola
+    /// Reciprocal of semi-major axis
     fn alpha(&self) -> f64 {
         (1.0 - self.e.powi(2)) / self.p
     }
@@ -70,6 +71,20 @@ impl Orbit2D {
     /// Specific angular momentum
     fn h(&self) -> f64 {
         (self.p * self.grav).sqrt()
+    }
+
+    /// Orbital period
+    ///
+    /// Note this will only be `Some` if the orbit is elliptical / periodic,
+    /// i.e. the eccentricity is less than 1.
+    fn period(&self) -> Option<SimDuration> {
+        if self.is_elliptic() {
+            Some(SimDuration::from_secs_f64(
+                TAU * (self.a().powi(3) / self.grav).sqrt(),
+            ))
+        } else {
+            None
+        }
     }
 
     fn chi(&self, time: f64) -> f64 {
@@ -90,8 +105,15 @@ impl Orbit2D {
         chi
     }
 
-    pub fn current_state(&self, time: f64) -> State2D {
-        let chi = self.chi(time);
+    pub fn current_state(&self, time: SimInstant) -> State2D {
+        let dt = time - self.t0;
+        let dt = match self.period() {
+            Some(period) => dt % period,
+            None => dt,
+        };
+        let dt_secs = dt.as_secs_f64();
+
+        let chi = self.chi(dt_secs);
 
         let &Self { grav, .. } = self;
         let alpha = self.alpha();
@@ -102,7 +124,7 @@ impl Orbit2D {
         let z = alpha * chi.powi(2);
 
         let f = 1.0 - chi.powi(2) / rp * sc(z);
-        let g = time - chi.powi(3) * ss(z) / grav.sqrt();
+        let g = dt_secs - chi.powi(3) * ss(z) / grav.sqrt();
         let position = f * r0 + g * v0;
         let r = position.length();
 
@@ -185,7 +207,7 @@ impl Orbit3D {
             * DQuat::from_rotation_z(self.arg_pe);
     }
 
-    pub fn current_state(&self, time: f64) -> State3D {
+    pub fn current_state(&self, time: SimInstant) -> State3D {
         let xf = self.orientation();
         let state_2d = self.shape.current_state(time);
         State3D {

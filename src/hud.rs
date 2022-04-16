@@ -5,6 +5,7 @@ use tiny_skia::{Paint, PathBuilder, Pixmap, Stroke, Transform};
 
 use crate::{
     orbit::{Orbit2D, Orbit3D},
+    time::SimInstant,
     viewport::Viewport,
     GraphicsContext,
 };
@@ -24,7 +25,7 @@ pub struct Hud {
 impl Hud {
     pub fn new(gfx: &GraphicsContext) -> Self {
         let orbit = Orbit3D::new(
-            Orbit2D::new(0.5, 2.0, 3.0),
+            Orbit2D::new(0.5, 2.0, SimInstant::epoch(), 3.0),
             f64::TAU / 4.0,
             f64::TAU / 8.0,
             0.0,

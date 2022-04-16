@@ -1,8 +1,6 @@
-use std::cmp::Ordering;
-
 use glam::Vec3;
 
-use crate::{geometry::icosahedron, math::slerp, model::Model, GraphicsContext};
+use crate::{geometry::icosahedron, model::Model, GraphicsContext};
 
 pub struct Geodesic {
     pub subdivisions: usize,

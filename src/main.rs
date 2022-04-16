@@ -1,10 +1,11 @@
-mod geometry;
-mod hud;
-mod math;
-mod model;
-mod orbit;
-mod scene;
-mod viewport;
+pub mod geometry;
+pub mod hud;
+pub mod math;
+pub mod model;
+pub mod orbit;
+pub mod scene;
+pub mod time;
+pub mod viewport;
 
 use anyhow::Context;
 use hud::Hud;
