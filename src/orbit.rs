@@ -39,6 +39,22 @@ impl Orbit2D {
         self.e > 1.0
     }
 
+    pub fn e(&self) -> f64 {
+        self.e
+    }
+
+    pub fn p(&self) -> f64 {
+        self.p
+    }
+
+    pub fn t0(&self) -> SimInstant {
+        self.t0
+    }
+
+    pub fn grav(&self) -> f64 {
+        self.grav
+    }
+
     /// Apoapsis
     pub fn ra(&self) -> f64 {
         self.p / (1.0 - self.e)
@@ -197,13 +213,12 @@ impl Orbit3D {
             ..
         } = state;
         let r_mag = r.length();
-        let v_mag = v.length();
 
         let h = r.cross(v);
-        let n = DVec3::Z.cross(h);
-        let e = ((v_mag.powi(2) - grav / r_mag) * r - r_mag * v_mag * v) / grav;
         let h_mag = h.length();
+        let n = DVec3::Z.cross(h);
         let n_mag = n.length();
+        let e = v.cross(h) / grav - r / r_mag;
         let e_mag = e.length();
 
         let inc = (h.z / h_mag).acos();
@@ -250,7 +265,7 @@ impl Orbit3D {
                 let q = p / (1.0 - e_mag);
                 ma * (q.powi(3) / grav).sqrt()
             }
-            None => panic!("invalid parameter e={}", e),
+            None => panic!("invalid parameter e={}", e_mag),
         };
         let t0 = state.time - SimDuration::from_secs_f64(t);
 

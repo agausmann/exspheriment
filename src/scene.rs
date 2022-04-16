@@ -160,11 +160,11 @@ impl Scene {
         self.instances[1].albedo = Vec3::new(0.3, 0.6, 0.9).into();
 
         // Orbiting triangles
-        let p = self.orbit.current_state(SimInstant::epoch() + t.into());
+        let state = self.orbit.current_state(SimInstant::epoch() + t.into());
         self.instances[2].model = Mat4::from_scale_rotation_translation(
             Vec3::splat(0.1),
             Quat::from_rotation_x(-f32::TAU / 4.0),
-            p.position.as_vec3() + Vec3::new(0.0, 0.0, 1.5),
+            state.position.as_vec3() + Vec3::new(0.0, 0.0, 1.5),
         )
         .to_cols_array_2d();
         self.instances[2].albedo = Vec3::new(0.9, 0.1, 0.2).into();
