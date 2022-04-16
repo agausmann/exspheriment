@@ -277,12 +277,32 @@ impl Orbit3D {
         &self.shape
     }
 
+    /// Argument of periapsis
+    pub fn arg_pe(&self) -> f64 {
+        self.arg_pe
+    }
+
+    /// Inclination
+    pub fn inc(&self) -> f64 {
+        self.inc
+    }
+
+    /// Longitude of ascending node
+    pub fn lan(&self) -> f64 {
+        self.lan
+    }
+
     pub fn a_vector(&self) -> DVec3 {
         self.shape.a() * (self.orientation() * DVec3::X)
     }
 
     pub fn b_vector(&self) -> DVec3 {
         self.shape.b() * (self.orientation() * DVec3::Y)
+    }
+
+    pub fn position_at(&self, angle: f64) -> DVec3 {
+        let r = self.shape.radius_at(angle);
+        self.orientation() * DVec3::new(r * angle.cos(), r * angle.sin(), 0.0)
     }
 
     fn orientation(&self) -> DQuat {

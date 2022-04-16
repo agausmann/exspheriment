@@ -1,6 +1,10 @@
-use std::{f32::consts as f32, f64::consts as f64, num::NonZeroU32};
+use std::{
+    f32::consts as f32,
+    f64::consts::{self as f64, TAU},
+    num::NonZeroU32,
+};
 
-use glam::{Vec2, Vec3, Vec4Swizzles};
+use glam::{DVec3, Vec2, Vec4Swizzles};
 use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Stroke, Transform};
 
 use crate::{
@@ -193,8 +197,8 @@ impl Hud {
         let scale = 0.5 * Vec2::new(width, -height);
         let translate = 0.5 * Vec2::new(width, height);
 
-        let map_3d = |point: Vec3| {
-            let clip = view_proj * point.extend(1.0);
+        let map_3d = |point: DVec3| {
+            let clip = view_proj * point.as_vec3().extend(1.0);
             let normalized = clip.xy() / clip.w;
             let screen = normalized * scale + translate;
             screen
@@ -205,20 +209,21 @@ impl Hud {
         let mut stroke = Stroke::default();
         let mut paint = Paint::default();
         stroke.width = 2.0;
+        paint.anti_alias = true;
 
-        let origin = (self.orbit.a_vector()
+        let focus = DVec3::new(0.0, 0.0, 1.5);
+        let center = (self.orbit.a_vector()
             * (self.orbit.shape().rp() / self.orbit.shape().a() - 1.0))
-            .as_vec3()
-            + Vec3::new(0.0, 0.0, 1.5);
-        let a = self.orbit.a_vector().as_vec3();
-        let b = self.orbit.b_vector().as_vec3();
-
-        let mut orbit_path = PathBuilder::new();
+            + focus;
+        let a = self.orbit.a_vector();
+        let b = self.orbit.b_vector();
 
         dbg!(&self.orbit);
-        for i in 0..500 {
-            let k = (i as f32) / 100.0 * f32::TAU;
-            let point = map_3d(origin + a * k.cos() + b * k.sin());
+
+        let mut orbit_path = PathBuilder::new();
+        for i in 0..100 {
+            let k = (i as f64) / 100.0 * TAU;
+            let point = map_3d(center + a * k.cos() + b * k.sin());
 
             if i == 0 {
                 orbit_path.move_to(point.x, point.y);
@@ -234,11 +239,48 @@ impl Hud {
                 .stroke_path(&path, &paint, &stroke, Transform::identity(), None);
         }
 
+        let node_a = map_3d(focus + self.orbit.position_at(-self.orbit.arg_pe()));
+        let node_b = map_3d(focus + self.orbit.position_at(TAU / 2.0 - self.orbit.arg_pe()));
+        let mut node_path = PathBuilder::new();
+        node_path.move_to(node_a.x, node_a.y);
+        node_path.line_to(node_b.x, node_b.y);
+
+        paint.set_color_rgba8(127, 127, 127, 127);
+        self.pixmap.stroke_path(
+            &node_path.finish().unwrap(),
+            &paint,
+            &stroke,
+            Transform::identity(),
+            None,
+        );
+
+        let peri = map_3d(focus + self.orbit.position_at(0.0));
+        let peri_path = PathBuilder::from_circle(peri.x, peri.y, 5.0).unwrap();
+        paint.set_color_rgba8(255, 0, 0, 192);
+        self.pixmap.fill_path(
+            &peri_path,
+            &paint,
+            Default::default(),
+            Transform::identity(),
+            None,
+        );
+
+        let apo = map_3d(focus + self.orbit.position_at(TAU / 2.0));
+        let apo_path = PathBuilder::from_circle(apo.x, apo.y, 5.0).unwrap();
+        paint.set_color_rgba8(0, 0, 255, 192);
+        self.pixmap.fill_path(
+            &apo_path,
+            &paint,
+            Default::default(),
+            Transform::identity(),
+            None,
+        );
+
         if let Some(state) = &self.state {
-            let position = state.position.as_vec3() + Vec3::new(0.0, 0.0, 1.5);
+            let position = focus + state.position;
 
             let base = map_3d(position);
-            let tip = map_3d(position + state.velocity.as_vec3());
+            let tip = map_3d(position + state.velocity);
             let mut vel_path = PathBuilder::new();
             vel_path.move_to(base.x, base.y);
             vel_path.line_to(tip.x, tip.y);
@@ -252,7 +294,7 @@ impl Hud {
                 None,
             );
 
-            let accel = state.position.cross(state.velocity).as_vec3().normalize();
+            let accel = state.position.cross(state.velocity).normalize();
             let base = map_3d(position);
             let tip = map_3d(position + accel);
             let mut accel_path = PathBuilder::new();
