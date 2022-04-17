@@ -421,6 +421,7 @@ dependencies = [
  "once_cell",
  "pollster",
  "tiny-skia",
+ "valet",
  "wgpu",
  "winit",
 ]
@@ -1189,6 +1190,12 @@ name = "unicode-xid"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
+
+[[package]]
+name = "valet"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10c6497dca28afd6eef45fad2732a2c05e7d4cf312dc6cf5c246f51454a1d8c5"
 
 [[package]]
 name = "version_check"

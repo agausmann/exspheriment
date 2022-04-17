@@ -328,3 +328,29 @@ pub struct State3D {
     pub velocity: DVec3,
     pub time: SimInstant,
 }
+
+impl State3D {
+    pub fn zero(time: SimInstant) -> Self {
+        Self {
+            position: DVec3::ZERO,
+            velocity: DVec3::ZERO,
+            time,
+        }
+    }
+
+    pub fn offset_by(&self, other: &Self) -> Self {
+        Self {
+            position: self.position + other.position,
+            velocity: self.velocity + other.velocity,
+            time: self.time,
+        }
+    }
+
+    pub fn relative_to(&self, other: &Self) -> Self {
+        Self {
+            position: self.position - other.position,
+            velocity: self.velocity - other.velocity,
+            time: self.time,
+        }
+    }
+}

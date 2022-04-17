@@ -16,9 +16,9 @@ use crate::{
 
 #[derive(Default, Clone, Copy, Pod, Zeroable)]
 #[repr(C)]
-struct Instance {
-    model: [[f32; 4]; 4],
-    albedo: [f32; 3],
+pub struct Instance {
+    pub model: [[f32; 4]; 4],
+    pub albedo: [f32; 3],
 }
 
 static INSTANCE_ATTRIBUTES: Lazy<[wgpu::VertexAttribute; 5]> = Lazy::new(|| {
@@ -38,7 +38,7 @@ pub struct Scene {
     square: Square,
     pipeline: wgpu::RenderPipeline,
     instance_buffer: wgpu::Buffer,
-    instances: Vec<Instance>,
+    pub instances: Vec<Instance>,
     animation_start: Instant,
     pub orbit: Orbit3D,
     pub state: Option<State3D>,
@@ -217,8 +217,8 @@ impl Scene {
             render_pass.set_bind_group(0, viewport.bind_group(), &[]);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             // render_pass.draw_model(&self.square.model, 0..1);
-            render_pass.draw_model(&self.geodesic.model, 1..2);
-            render_pass.draw_model(&self.triangle.model, 2..3);
+            render_pass.draw_model(&self.geodesic.model, 0..3);
+            // render_pass.draw_model(&self.triangle.model, 2..3);
         }
     }
 }

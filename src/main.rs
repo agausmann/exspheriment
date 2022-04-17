@@ -6,6 +6,7 @@ pub mod orbit;
 pub mod scene;
 pub mod time;
 pub mod viewport;
+pub mod world;
 
 use anyhow::Context;
 use hud::Hud;
@@ -17,6 +18,7 @@ use winit::dpi::LogicalSize;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
+use world::World;
 
 pub type GraphicsContext = Arc<GraphicsContextInner>;
 
@@ -84,6 +86,7 @@ impl GraphicsContextInner {
 struct App {
     gfx: GraphicsContext,
     viewport: Viewport,
+    world: World,
     scene: Scene,
     hud: Hud,
 }
@@ -94,12 +97,14 @@ impl App {
         gfx.reconfigure();
 
         let viewport = Viewport::new(&gfx);
+        let world = World::new();
         let scene = Scene::new(&gfx, &viewport);
         let hud = Hud::new(&gfx);
 
         Ok(Self {
             gfx,
             viewport,
+            world,
             scene,
             hud,
         })
@@ -107,9 +112,15 @@ impl App {
 
     fn update(&mut self) {
         self.viewport.update();
-        self.scene.update(&self.viewport);
-        self.hud.orbit = self.scene.orbit;
-        self.hud.state = self.scene.state;
+        // self.scene.update(&self.viewport);
+        // self.hud.orbit = self.scene.orbit;
+        // self.hud.state = self.scene.state;
+
+        self.world.update();
+        for (id, tag) in self.world.body_tags.iter().enumerate() {
+            self.scene.instances[id].model = self.world.body(tag).model_matrix().to_cols_array_2d();
+            self.scene.instances[id].albedo = [0.3, 0.6, 0.9];
+        }
     }
 
     fn redraw(&mut self) -> anyhow::Result<()> {
