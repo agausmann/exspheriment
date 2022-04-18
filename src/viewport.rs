@@ -61,7 +61,7 @@ impl Viewport {
             bind_group_layout,
             bind_group,
             uniform_buffer,
-            camera_position: Vec3::new(0.0, -1.0e6, 1.5e11),
+            camera_position: Vec3::new(0.0, -1.0e6, 2.0e11),
             look_at: Vec3::ZERO,
         }
     }
@@ -96,7 +96,7 @@ impl Viewport {
             75.0_f32.to_radians(),
             size.width as f32 / size.height as f32,
             0.1,
-            1.0e12,
+            1.0e13,
         );
         let camera = Mat4::look_at_rh(self.camera_position, self.look_at, Vec3::Z);
         projection * camera

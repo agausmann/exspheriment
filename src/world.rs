@@ -29,7 +29,12 @@ impl World {
             body_tags: vec![],
         };
 
-        let sun = this.add_body(&OrbitSpec::Fixed(DVec3::ZERO), 2.0e30, 6.957e8);
+        let sun = this.add_body(
+            &OrbitSpec::Fixed(DVec3::ZERO),
+            2.0e30,
+            6.957e9,
+            // 6.957e8,
+        );
         this.root = Some(sun);
         let earth = this.add_body(
             &OrbitSpec::Apsides {
@@ -42,7 +47,8 @@ impl World {
                 lan: -11.26064_f64.to_radians(),
             },
             5.97237e24,
-            6.365e6,
+            6.957e9,
+            // 6.365e6,
         );
         let _moon = this.add_body(
             &OrbitSpec::Apsides {
@@ -110,8 +116,9 @@ impl World {
 
     pub fn update(&mut self) {
         let now = Instant::now();
-        let dt = SimDuration::from(now - self.last_update);
+        let dt = SimDuration::from((now - self.last_update) * 100000);
         self.time += dt;
+        self.last_update = now;
 
         self.update_positions();
     }
