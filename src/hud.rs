@@ -211,120 +211,120 @@ impl Hud {
         stroke.width = 2.0;
         paint.anti_alias = true;
 
-        // let focus = DVec3::new(0.0, 0.0, 1.5);
-        // let center = (self.orbit.a_vector()
-        //     * (self.orbit.shape().rp() / self.orbit.shape().a() - 1.0))
-        //     + focus;
-        // let a = self.orbit.a_vector();
-        // let b = self.orbit.b_vector();
+        let focus = DVec3::new(0.0, 0.0, 1.5);
+        let center = (self.orbit.a_vector()
+            * (self.orbit.shape().rp() / self.orbit.shape().a() - 1.0))
+            + focus;
+        let a = self.orbit.a_vector();
+        let b = self.orbit.b_vector();
 
-        // dbg!(&self.orbit);
+        dbg!(&self.orbit);
 
-        // let mut orbit_path = PathBuilder::new();
-        // for i in 0..100 {
-        //     let k = (i as f64) / 100.0 * TAU;
-        //     let point = map_3d(center + a * k.cos() + b * k.sin());
+        let mut orbit_path = PathBuilder::new();
+        for i in 0..100 {
+            let k = (i as f64) / 100.0 * TAU;
+            let point = map_3d(center + a * k.cos() + b * k.sin());
 
-        //     if i == 0 {
-        //         orbit_path.move_to(point.x, point.y);
-        //     } else {
-        //         orbit_path.line_to(point.x, point.y);
-        //     }
-        // }
-        // orbit_path.close();
+            if i == 0 {
+                orbit_path.move_to(point.x, point.y);
+            } else {
+                orbit_path.line_to(point.x, point.y);
+            }
+        }
+        orbit_path.close();
 
-        // if let Some(path) = orbit_path.finish() {
-        //     paint.set_color_rgba8(127, 96, 64, 192);
-        //     self.pixmap
-        //         .stroke_path(&path, &paint, &stroke, Transform::identity(), None);
-        // }
+        if let Some(path) = orbit_path.finish() {
+            paint.set_color_rgba8(127, 96, 64, 192);
+            self.pixmap
+                .stroke_path(&path, &paint, &stroke, Transform::identity(), None);
+        }
 
-        // let node_a = map_3d(focus + self.orbit.position_at(-self.orbit.arg_pe()));
-        // let node_b = map_3d(focus + self.orbit.position_at(TAU / 2.0 - self.orbit.arg_pe()));
-        // let mut node_path = PathBuilder::new();
-        // node_path.move_to(node_a.x, node_a.y);
-        // node_path.line_to(node_b.x, node_b.y);
-
-        // paint.set_color_rgba8(127, 127, 127, 127);
-        // self.pixmap.stroke_path(
-        //     &node_path.finish().unwrap(),
-        //     &paint,
-        //     &stroke,
-        //     Transform::identity(),
-        //     None,
-        // );
-
-        // let peri = map_3d(focus + self.orbit.position_at(0.0));
-        // let peri_path = PathBuilder::from_circle(peri.x, peri.y, 5.0).unwrap();
-        // paint.set_color_rgba8(255, 0, 0, 192);
-        // self.pixmap.fill_path(
-        //     &peri_path,
-        //     &paint,
-        //     Default::default(),
-        //     Transform::identity(),
-        //     None,
-        // );
-
-        // let apo = map_3d(focus + self.orbit.position_at(TAU / 2.0));
-        // let apo_path = PathBuilder::from_circle(apo.x, apo.y, 5.0).unwrap();
-        // paint.set_color_rgba8(0, 0, 255, 192);
-        // self.pixmap.fill_path(
-        //     &apo_path,
-        //     &paint,
-        //     Default::default(),
-        //     Transform::identity(),
-        //     None,
-        // );
-
-        // if let Some(state) = &self.state {
-        //     let position = focus + state.position;
-
-        //     let base = map_3d(position);
-        //     let tip = map_3d(position + state.velocity);
-        //     let mut vel_path = PathBuilder::new();
-        //     vel_path.move_to(base.x, base.y);
-        //     vel_path.line_to(tip.x, tip.y);
-
-        //     paint.set_color_rgba8(0, 255, 0, 255);
-        //     self.pixmap.stroke_path(
-        //         &vel_path.finish().unwrap(),
-        //         &paint,
-        //         &stroke,
-        //         Transform::identity(),
-        //         None,
-        //     );
-
-        //     let accel = state.position.cross(state.velocity).normalize();
-        //     let base = map_3d(position);
-        //     let tip = map_3d(position + accel);
-        //     let mut accel_path = PathBuilder::new();
-        //     accel_path.move_to(base.x, base.y);
-        //     accel_path.line_to(tip.x, tip.y);
-
-        //     paint.set_color_rgba8(0, 0, 255, 255);
-        //     self.pixmap.stroke_path(
-        //         &accel_path.finish().unwrap(),
-        //         &paint,
-        //         &stroke,
-        //         Transform::identity(),
-        //         None,
-        //     );
-        // }
-
-        let center = map_3d(DVec3::ZERO);
-        let radius = map_3d(DVec3::new(1.5e11, 0.0, 0.0));
-        let mut radius_path = PathBuilder::new();
-        radius_path.move_to(center.x, center.y);
-        radius_path.line_to(radius.x, radius.y);
+        let node_a = map_3d(focus + self.orbit.position_at(-self.orbit.arg_pe()));
+        let node_b = map_3d(focus + self.orbit.position_at(TAU / 2.0 - self.orbit.arg_pe()));
+        let mut node_path = PathBuilder::new();
+        node_path.move_to(node_a.x, node_a.y);
+        node_path.line_to(node_b.x, node_b.y);
 
         paint.set_color_rgba8(127, 127, 127, 127);
         self.pixmap.stroke_path(
-            &radius_path.finish().unwrap(),
+            &node_path.finish().unwrap(),
             &paint,
             &stroke,
             Transform::identity(),
             None,
         );
+
+        let peri = map_3d(focus + self.orbit.position_at(0.0));
+        let peri_path = PathBuilder::from_circle(peri.x, peri.y, 5.0).unwrap();
+        paint.set_color_rgba8(255, 0, 0, 192);
+        self.pixmap.fill_path(
+            &peri_path,
+            &paint,
+            Default::default(),
+            Transform::identity(),
+            None,
+        );
+
+        let apo = map_3d(focus + self.orbit.position_at(TAU / 2.0));
+        let apo_path = PathBuilder::from_circle(apo.x, apo.y, 5.0).unwrap();
+        paint.set_color_rgba8(0, 0, 255, 192);
+        self.pixmap.fill_path(
+            &apo_path,
+            &paint,
+            Default::default(),
+            Transform::identity(),
+            None,
+        );
+
+        if let Some(state) = &self.state {
+            let position = focus + state.position;
+
+            let base = map_3d(position);
+            let tip = map_3d(position + state.velocity);
+            let mut vel_path = PathBuilder::new();
+            vel_path.move_to(base.x, base.y);
+            vel_path.line_to(tip.x, tip.y);
+
+            paint.set_color_rgba8(0, 255, 0, 255);
+            self.pixmap.stroke_path(
+                &vel_path.finish().unwrap(),
+                &paint,
+                &stroke,
+                Transform::identity(),
+                None,
+            );
+
+            let accel = state.position.cross(state.velocity).normalize();
+            let base = map_3d(position);
+            let tip = map_3d(position + accel);
+            let mut accel_path = PathBuilder::new();
+            accel_path.move_to(base.x, base.y);
+            accel_path.line_to(tip.x, tip.y);
+
+            paint.set_color_rgba8(0, 0, 255, 255);
+            self.pixmap.stroke_path(
+                &accel_path.finish().unwrap(),
+                &paint,
+                &stroke,
+                Transform::identity(),
+                None,
+            );
+        }
+
+        // let center = map_3d(DVec3::ZERO);
+        // let radius = map_3d(DVec3::new(1.5e11, 0.0, 0.0));
+        // let mut radius_path = PathBuilder::new();
+        // radius_path.move_to(center.x, center.y);
+        // radius_path.line_to(radius.x, radius.y);
+
+        // paint.set_color_rgba8(127, 127, 127, 127);
+        // self.pixmap.stroke_path(
+        //     &radius_path.finish().unwrap(),
+        //     &paint,
+        //     &stroke,
+        //     Transform::identity(),
+        //     None,
+        // );
 
         self.gfx.queue.write_texture(
             wgpu::ImageCopyTexture {

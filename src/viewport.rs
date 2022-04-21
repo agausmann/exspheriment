@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use glam::{Mat4, Vec3};
+use glam::{EulerRot, Mat4, Quat, Vec3};
 use wgpu::util::DeviceExt;
 
 use crate::GraphicsContext;
@@ -17,8 +17,10 @@ pub struct Viewport {
     bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
     uniform_buffer: wgpu::Buffer,
-    camera_position: Vec3,
-    look_at: Vec3,
+    pub camera_position: Vec3,
+    pub up: Vec3,
+    pub pitch: f32,
+    pub yaw: f32,
 }
 
 impl Viewport {
@@ -61,8 +63,10 @@ impl Viewport {
             bind_group_layout,
             bind_group,
             uniform_buffer,
-            camera_position: Vec3::new(0.0, -1.0e6, 2.0e11),
-            look_at: Vec3::ZERO,
+            camera_position: Vec3::new(0.0, -5.0, 3.0),
+            up: Vec3::Z,
+            pitch: 0.0,
+            yaw: 0.0,
         }
     }
 
@@ -90,15 +94,24 @@ impl Viewport {
         );
     }
 
+    pub fn camera_orientation(&self) -> Quat {
+        Quat::from_euler(EulerRot::ZXY, self.yaw, self.pitch, 0.0)
+    }
+
     pub fn view_proj(&self) -> Mat4 {
         let size = self.gfx.window.inner_size();
         let projection = Mat4::perspective_rh(
             75.0_f32.to_radians(),
             size.width as f32 / size.height as f32,
-            1.0e6,
-            1.0e13,
+            0.1,
+            1000.0,
         );
-        let camera = Mat4::look_at_rh(self.camera_position, self.look_at, Vec3::Z);
+        let forward = self.camera_orientation() * Vec3::Y;
+        let camera = Mat4::look_at_rh(
+            self.camera_position,
+            self.camera_position + forward,
+            Vec3::Z,
+        );
         projection * camera
     }
 }

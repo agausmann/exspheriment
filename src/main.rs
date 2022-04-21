@@ -1,3 +1,4 @@
+pub mod controls;
 pub mod geometry;
 pub mod hud;
 pub mod math;
@@ -9,16 +10,24 @@ pub mod viewport;
 pub mod world;
 
 use anyhow::Context;
+use controls::Controls;
+use glam::{Quat, Vec3, Vec3Swizzles};
 use hud::Hud;
 use pollster::block_on;
 use scene::Scene;
+use std::f32::consts::TAU;
 use std::sync::Arc;
+use std::time::Instant;
 use viewport::Viewport;
 use winit::dpi::LogicalSize;
-use winit::event::{Event, WindowEvent};
+use winit::event::WindowEvent;
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 use world::World;
+
+pub type Event<'a> = winit::event::Event<'a, AppEvent>;
+
+pub enum AppEvent {}
 
 pub type GraphicsContext = Arc<GraphicsContextInner>;
 
@@ -85,10 +94,12 @@ impl GraphicsContextInner {
 
 struct App {
     gfx: GraphicsContext,
+    controls: Controls,
     viewport: Viewport,
     world: World,
     scene: Scene,
     hud: Hud,
+    last_update: Instant,
 }
 
 impl App {
@@ -96,6 +107,7 @@ impl App {
         let gfx = Arc::new(GraphicsContextInner::new(window).await?);
         gfx.reconfigure();
 
+        let controls = Controls::new();
         let viewport = Viewport::new(&gfx);
         let world = World::new();
         let scene = Scene::new(&gfx, &viewport);
@@ -103,24 +115,49 @@ impl App {
 
         Ok(Self {
             gfx,
+            controls,
             viewport,
             world,
             scene,
             hud,
+            last_update: Instant::now(),
         })
     }
 
-    fn update(&mut self) {
-        self.viewport.update();
-        // self.scene.update(&self.viewport);
-        // self.hud.orbit = self.scene.orbit;
-        // self.hud.state = self.scene.state;
+    fn event(&mut self, event: &Event) {
+        self.controls.event(event);
+    }
 
-        self.world.update();
-        for (id, tag) in self.world.body_tags.iter().enumerate() {
-            self.scene.instances[id].model = self.world.body(tag).model_matrix().to_cols_array_2d();
-            self.scene.instances[id].albedo = [0.3, 0.6, 0.9];
-        }
+    fn update(&mut self) {
+        let now = Instant::now();
+        let dt = now - self.last_update;
+
+        self.viewport.pitch = (self.viewport.pitch + self.controls.take_pitch() as f32 * 0.001)
+            .clamp(-TAU / 4.0 + 0.001, TAU / 4.0 - 0.001);
+        self.viewport.yaw = (self.viewport.yaw + self.controls.take_yaw() as f32 * 0.001) % TAU;
+
+        // Moving forward/back doesn't change altitude
+        // let global_movement =
+        //     Quat::from_rotation_z(self.viewport.yaw) * self.controls.net_movement();
+
+        // Moving forward/back does change altitude
+        let global_movement = self.viewport.camera_orientation()
+            * self.controls.net_movement().xy().extend(0.0)
+            + Vec3::new(0.0, 0.0, self.controls.net_movement().z);
+
+        self.viewport.camera_position += dt.as_secs_f32() * 5.0 * global_movement;
+
+        self.last_update = now;
+        self.viewport.update();
+        self.scene.update(&self.viewport);
+        self.hud.orbit = self.scene.orbit;
+        self.hud.state = self.scene.state;
+
+        // self.world.update();
+        // for (id, tag) in self.world.body_tags.iter().enumerate() {
+        //     self.scene.instances[id].model = self.world.body(tag).model_matrix().to_cols_array_2d();
+        //     self.scene.instances[id].albedo = [0.3, 0.6, 0.9];
+        // }
     }
 
     fn redraw(&mut self) -> anyhow::Result<()> {
@@ -183,31 +220,36 @@ impl App {
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::with_user_event();
     let window = WindowBuilder::new()
-        .with_inner_size(LogicalSize::new(1280, 720))
+        .with_inner_size(LogicalSize::<i32>::new(1280, 720))
         .with_title("Exspherement")
         .build(&event_loop)?;
+    window.set_cursor_grab(true).context("cannot grab cursor")?;
+    window.set_cursor_visible(false);
 
     let mut app = block_on(App::new(window))?;
 
-    event_loop.run(move |event, _, control_flow| match event {
-        Event::RedrawRequested(..) => {
-            app.update();
-            app.redraw().unwrap();
-        }
-        Event::WindowEvent { event, .. } => match event {
-            WindowEvent::CloseRequested => {
-                *control_flow = ControlFlow::Exit;
+    event_loop.run(move |event, _, control_flow| {
+        app.event(&event);
+        match event {
+            Event::RedrawRequested(..) => {
+                app.update();
+                app.redraw().unwrap();
             }
-            WindowEvent::Resized(..) | WindowEvent::ScaleFactorChanged { .. } => {
-                app.window_resized();
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => {
+                    *control_flow = ControlFlow::Exit;
+                }
+                WindowEvent::Resized(..) | WindowEvent::ScaleFactorChanged { .. } => {
+                    app.window_resized();
+                }
+                _ => {}
+            },
+            Event::MainEventsCleared => {
+                app.gfx.window.request_redraw();
             }
             _ => {}
-        },
-        Event::MainEventsCleared => {
-            app.gfx.window.request_redraw();
         }
-        _ => {}
     })
 }
