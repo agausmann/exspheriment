@@ -21,6 +21,8 @@ struct VertexOutput {
 struct Uniforms {
     view_proj: mat4x4<f32>;
     camera: vec3<f32>;
+    forward_xfov: vec4<f32>;
+    up_yfov: vec4<f32>;
 };
 
 [[group(0), binding(0)]]
