@@ -18,15 +18,15 @@ struct VertexOutput {
     [[location(2)]] albedo: vec3<f32>;
 };
 
-struct Uniforms {
+struct Viewport {
     view_proj: mat4x4<f32>;
-    camera: vec3<f32>;
+    eye: vec3<f32>;
     forward_xfov: vec4<f32>;
     up_yfov: vec4<f32>;
 };
 
 [[group(0), binding(0)]]
-var<uniform> uniforms: Uniforms;
+var<uniform> viewport: Viewport;
 
 [[stage(vertex)]]
 fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
@@ -41,7 +41,7 @@ fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
     let position = model * vec4<f32>(vertex.position, 1.0);
     out.position = position.xyz;
     out.normal = normalize((model * vec4<f32>(vertex.normal, 0.0)).xyz);
-    out.clip_position = uniforms.view_proj * position;
+    out.clip_position = viewport.view_proj * position;
     out.albedo = instance.albedo;
 
     return out;
@@ -54,7 +54,7 @@ fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     let dy = -dpdy(in.position);
     let normal = normalize(cross(dx, dy));
 
-    let ray = normalize(uniforms.camera - in.position);
+    let ray = normalize(viewport.eye - in.position);
     let coef = dot(ray, normal);
     return vec4<f32>(in.albedo * coef, 1.0);
 }

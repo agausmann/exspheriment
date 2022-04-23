@@ -16,9 +16,9 @@ struct Uniforms {
     // mat4x4<f32>
     view_proj: [[f32; 4]; 4],
 
-    // vec4<f32>
+    // vec3<f32>
     camera: [f32; 3],
-    z_near: f32,
+    _padding: [u8; 4],
 
     // vec4<f32>
     forward: [f32; 3],
@@ -135,11 +135,11 @@ impl Viewport {
             bytemuck::bytes_of(&Uniforms {
                 view_proj: self.view_proj().to_cols_array_2d(),
                 camera: self.camera_position.into(),
-                z_near: Z_NEAR,
                 forward: self.forward().into(),
                 up: self.up().into(),
                 x_fov: ((FOV * 0.5).tan() * self.aspect()).atan() * 2.0,
                 y_fov: FOV,
+                _padding: Default::default(),
             }),
         );
     }
