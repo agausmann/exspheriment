@@ -197,8 +197,8 @@ fn ellipse_main([[builtin(global_invocation_id)]] id: vec3<u32>) {
     let su = dot(normalize(intersect), normalize(u));
     let sv = dot(normalize(intersect), normalize(v));
     var theta = atan2(sv, su);
-    
-    for (var i = 0; i < 10; i = i + 1) {
+
+    for (var i = 0; i < 2; i = i + 1) {
         let e = u * cos(theta) + v * sin(theta) + w;
         let de = v * cos(theta) - u * sin(theta);
         let dde = -(u * cos(theta) + v * sin(theta));
