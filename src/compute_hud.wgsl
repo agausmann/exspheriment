@@ -16,12 +16,23 @@ struct Line {
     color: vec4<f32>;
 };
 
+struct Ellipse {
+    center_size: vec4<f32>;
+    axis_1: vec3<f32>;
+    axis_2: vec3<f32>;
+    color: vec4<f32>;
+};
+
 struct Points {
     points: array<Point>;
 };
 
 struct Lines {
     lines: array<Line>;
+};
+
+struct Ellipses {
+    ellipses: array<Ellipse>;
 };
 
 [[group(0), binding(0)]]
@@ -35,6 +46,9 @@ var<storage, read> points: Points;
 
 [[group(1), binding(2)]]
 var<storage, read> lines: Lines;
+
+[[group(1), binding(3)]]
+var<storage, read> ellipses: Ellipses;
 
 fn eye_ray(id: vec3<u32>) -> vec3<f32> {
     let forward = normalize(viewport.forward_xfov.xyz);
@@ -131,5 +145,84 @@ fn line_main([[builtin(global_invocation_id)]] id: vec3<u32>) {
 
     if (t0 >= 0.0 && distance <= line_size) {
         textureStore(output, vec2<i32>(id.xy), line_color);
+    }
+}
+
+[[stage(compute), workgroup_size(64)]]
+fn ellipse_main([[builtin(global_invocation_id)]] id: vec3<u32>) {
+    let dims = textureDimensions(output);
+    if (id.x >= u32(dims.x) || id.y >= u32(dims.y)) {
+        return;
+    }
+
+    let eye = viewport.eye;
+    let eye_ray = eye_ray(id);
+
+    let el_center = ellipses.ellipses[id.z].center_size.xyz;
+    let stroke_width = ellipses.ellipses[id.z].center_size.w;
+    let el_axis_1 = ellipses.ellipses[id.z].axis_1;
+    let el_axis_2 = ellipses.ellipses[id.z].axis_2;
+    let el_color = ellipses.ellipses[id.z].color;
+
+    let a = eye_ray;
+    let u = el_axis_1;
+    let v = el_axis_2;
+    let w = el_center - eye;
+    let n = cross(u, v);
+
+    // Cull if ellipse is behind eye
+    if (dot(w, a) < 0.0) {
+        return;
+    }
+
+    // Find intersection of ray with elliptical plane;
+    // cull if it is too far away from the ellipse curve (>1.25r or <0.75r).
+    // This assumes that the stroke width is << 0.25r.
+    let intersect = dot(w, n) / dot(a, n) * a - w;
+
+    // These projections are divided by the lengths of u and v an extra time.
+    // The resulting pair of projections creates a coordinate pair that is
+    // related to the unit circle - if r is greater than 1, it is outside the
+    // original ellipse.
+    let u_proj = dot(intersect, u) / dot(u, u);
+    let v_proj = dot(intersect, v) / dot(v, v);
+    let r = sqrt(u_proj * u_proj + v_proj * v_proj);
+    if (r > 1.25 || r < 0.75) {
+        return;
+    }
+
+    // Otherwise continue with numerical approximation.
+
+    // Initial guess, using the angle between u and the intersection point:
+    let su = dot(normalize(intersect), normalize(u));
+    let sv = dot(normalize(intersect), normalize(v));
+    var theta = atan2(sv, su);
+    
+    for (var i = 0; i < 10; i = i + 1) {
+        let e = u * cos(theta) + v * sin(theta) + w;
+        let de = v * cos(theta) - u * sin(theta);
+        let dde = -(u * cos(theta) + v * sin(theta));
+
+        let g = dot(a, a) * dot(e, de) - dot(a, e) * dot(a, de);
+        let dg = dot(a, a) * (dot(e, dde) + dot(de, de))
+            - dot(a, de) * dot(a, de) - dot(a, e) * dot(a, dde);
+        
+        let delta = g / dg;
+        theta = theta - delta;
+    }
+
+    let el_approach = el_axis_1 * cos(theta) + el_axis_2 * sin(theta) + el_center;
+    let t = dot(el_approach - eye, a) / dot(a, a);
+    let eye_approach = a * t + eye;
+
+    let p_eye = viewport.view_proj * vec4<f32>(eye_approach, 1.0);
+    let p_el = viewport.view_proj * vec4<f32>(el_approach, 1.0);
+    let n_eye = p_eye.xy / p_eye.w;
+    let n_el = p_el.xy / p_el.w;
+
+    let distance = length((n_eye - n_el) * vec2<f32>(dims) * 0.5);
+
+    if (t >= 0.0 && distance <= stroke_width) {
+        textureStore(output, vec2<i32>(id.xy), el_color);
     }
 }

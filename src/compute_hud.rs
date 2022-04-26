@@ -31,13 +31,34 @@ struct Line {
     color: [f32; 4],
 }
 
+#[derive(Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
+struct Ellipse {
+    // vec4<f32>
+    center: [f32; 3],
+    size: f32,
+
+    // vec3<f32>
+    axis_1: [f32; 3],
+    _axis_1_padding: [u8; 4],
+
+    // vec3<f32>
+    axis_2: [f32; 3],
+    _axis_2_padding: [u8; 4],
+
+    // vec4<f32>
+    color: [f32; 4],
+}
+
 pub struct Hud {
     gfx: GraphicsContext,
     points_buffer: wgpu::Buffer,
     lines_buffer: wgpu::Buffer,
+    ellipses_buffer: wgpu::Buffer,
     bind_group_layout: wgpu::BindGroupLayout,
     point_pipeline: wgpu::ComputePipeline,
     line_pipeline: wgpu::ComputePipeline,
+    ellipse_pipeline: wgpu::ComputePipeline,
 }
 
 impl Hud {
@@ -49,7 +70,7 @@ impl Hud {
                 contents: bytemuck::cast_slice(&[Point {
                     position: [0.0, 0.0, 3.0],
                     size: 10.0,
-                    color: [1.0, 1.0, 0.0, 0.0],
+                    color: [1.0, 1.0, 0.0, 1.0],
                 }]),
                 usage: wgpu::BufferUsages::STORAGE,
             });
@@ -61,8 +82,23 @@ impl Hud {
                     start: [-1.0, 0.0, 3.0],
                     end: [1.0, 0.0, 3.0],
                     size: 5.0,
-                    color: [0.5, 0.5, 0.5, 0.0],
+                    color: [0.5, 0.5, 0.5, 1.0],
                     _padding: Default::default(),
+                }]),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
+        let ellipses_buffer = gfx
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Hud::ellipses_buffer"),
+                contents: bytemuck::cast_slice(&[Ellipse {
+                    center: [0.0, 0.0, 3.0],
+                    axis_1: [2.0, 0.0, 0.0],
+                    axis_2: [0.0, -2.0, -1.0],
+                    size: 3.0,
+                    color: [0.0, 0.0, 1.0, 1.0],
+                    _axis_1_padding: Default::default(),
+                    _axis_2_padding: Default::default(),
                 }]),
                 usage: wgpu::BufferUsages::STORAGE,
             });
@@ -94,6 +130,16 @@ impl Hud {
                         },
                         wgpu::BindGroupLayoutEntry {
                             binding: 2,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 3,
                             visibility: wgpu::ShaderStages::COMPUTE,
                             ty: wgpu::BindingType::Buffer {
                                 ty: wgpu::BufferBindingType::Storage { read_only: true },
@@ -135,13 +181,24 @@ impl Hud {
                 entry_point: "line_main",
             });
 
+        let ellipse_pipeline =
+            gfx.device
+                .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                    label: Some("Hud::ellipse_pipeline"),
+                    layout: Some(&pipeline_layout),
+                    module: &shader_module,
+                    entry_point: "ellipse_main",
+                });
+
         Self {
             gfx: gfx.clone(),
             points_buffer,
             lines_buffer,
+            ellipses_buffer,
             bind_group_layout,
             point_pipeline,
             line_pipeline,
+            ellipse_pipeline,
         }
     }
 
@@ -170,6 +227,10 @@ impl Hud {
                         binding: 2,
                         resource: self.lines_buffer.as_entire_binding(),
                     },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: self.ellipses_buffer.as_entire_binding(),
+                    },
                 ],
             });
         {
@@ -181,6 +242,9 @@ impl Hud {
             pass.set_bind_group(1, &bind_group, &[]);
 
             pass.set_pipeline(&self.line_pipeline);
+            pass.dispatch(div_ceil(size.width, WORKGROUP_SIZE), size.height, 1);
+
+            pass.set_pipeline(&self.ellipse_pipeline);
             pass.dispatch(div_ceil(size.width, WORKGROUP_SIZE), size.height, 1);
 
             pass.set_pipeline(&self.point_pipeline);
