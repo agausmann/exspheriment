@@ -50,15 +50,36 @@ struct Ellipse {
     color: [f32; 4],
 }
 
+#[derive(Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
+struct Conic {
+    // vec4<f32>
+    focus: [f32; 3],
+    size: f32,
+
+    // vec4<f32>
+    e_vec: [f32; 3],
+    e: f32,
+
+    // vec4<f32>
+    p_vec: [f32; 3],
+    p: f32,
+
+    // vec4<f32>
+    color: [f32; 4],
+}
+
 pub struct Hud {
     gfx: GraphicsContext,
     points_buffer: wgpu::Buffer,
     lines_buffer: wgpu::Buffer,
     ellipses_buffer: wgpu::Buffer,
+    conics_buffer: wgpu::Buffer,
     bind_group_layout: wgpu::BindGroupLayout,
     point_pipeline: wgpu::ComputePipeline,
     line_pipeline: wgpu::ComputePipeline,
     ellipse_pipeline: wgpu::ComputePipeline,
+    conic_pipeline: wgpu::ComputePipeline,
 }
 
 impl Hud {
@@ -102,6 +123,21 @@ impl Hud {
                 }]),
                 usage: wgpu::BufferUsages::STORAGE,
             });
+        let conics_buffer = gfx
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Hud::conics_buffer"),
+                contents: bytemuck::cast_slice(&[Conic {
+                    focus: [0.0, 0.0, 3.0],
+                    e_vec: [1.0, 0.0, 0.0],
+                    e: 0.1,
+                    p_vec: [0.0, 1.0, 0.0],
+                    p: 1.0,
+                    size: 3.0,
+                    color: [0.0, 0.0, 1.0, 1.0],
+                }]),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
 
         let bind_group_layout =
             gfx.device
@@ -140,6 +176,16 @@ impl Hud {
                         },
                         wgpu::BindGroupLayoutEntry {
                             binding: 3,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 4,
                             visibility: wgpu::ShaderStages::COMPUTE,
                             ty: wgpu::BindingType::Buffer {
                                 ty: wgpu::BufferBindingType::Storage { read_only: true },
@@ -190,15 +236,26 @@ impl Hud {
                     entry_point: "ellipse_main",
                 });
 
+        let conic_pipeline = gfx
+            .device
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Hud::conic_pipeline"),
+                layout: Some(&pipeline_layout),
+                module: &shader_module,
+                entry_point: "conic_main",
+            });
+
         Self {
             gfx: gfx.clone(),
             points_buffer,
             lines_buffer,
             ellipses_buffer,
+            conics_buffer,
             bind_group_layout,
             point_pipeline,
             line_pipeline,
             ellipse_pipeline,
+            conic_pipeline,
         }
     }
 
@@ -231,6 +288,10 @@ impl Hud {
                         binding: 3,
                         resource: self.ellipses_buffer.as_entire_binding(),
                     },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: self.conics_buffer.as_entire_binding(),
+                    },
                 ],
             });
         {
@@ -245,6 +306,9 @@ impl Hud {
             pass.dispatch(div_ceil(size.width, WORKGROUP_SIZE), size.height, 1);
 
             pass.set_pipeline(&self.ellipse_pipeline);
+            pass.dispatch(div_ceil(size.width, WORKGROUP_SIZE), size.height, 1);
+
+            pass.set_pipeline(&self.conic_pipeline);
             pass.dispatch(div_ceil(size.width, WORKGROUP_SIZE), size.height, 1);
 
             pass.set_pipeline(&self.point_pipeline);
