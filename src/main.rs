@@ -101,8 +101,8 @@ struct App {
     viewport: Viewport,
     world: World,
     scene: Scene,
-    // hud: Hud,
-    hud: compute_hud::Hud,
+    hud: Hud,
+    // hud: compute_hud::Hud,
     last_update: Instant,
 }
 
@@ -115,8 +115,8 @@ impl App {
         let viewport = Viewport::new(&gfx);
         let world = World::new();
         let scene = Scene::new(&gfx, &viewport);
-        // let hud = Hud::new(&gfx);
-        let hud = compute_hud::Hud::new(&gfx, &viewport);
+        let hud = Hud::new(&gfx);
+        // let hud = compute_hud::Hud::new(&gfx, &viewport);
 
         Ok(Self {
             gfx,
@@ -155,8 +155,8 @@ impl App {
         self.last_update = now;
         self.viewport.update();
         self.scene.update(&self.viewport);
-        // self.hud.orbit = self.scene.orbit;
-        // self.hud.state = self.scene.state;
+        self.hud.orbit = self.scene.orbit;
+        self.hud.state = self.scene.state;
 
         // self.world.update();
         // for (id, tag) in self.world.body_tags.iter().enumerate() {
@@ -218,7 +218,7 @@ impl App {
 
     fn window_resized(&mut self) {
         self.gfx.reconfigure();
-        // self.hud.resized();
+        self.hud.resized();
     }
 }
 
