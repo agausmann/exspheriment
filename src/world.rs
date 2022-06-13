@@ -13,7 +13,7 @@ const G: f64 = 6.67430e-11;
 
 pub struct World {
     bodies: Valet<Body>,
-    root: Option<Tag<Body>>,
+    roots: Vec<Tag<Body>>,
     time: SimInstant,
     last_update: Instant,
     pub body_tags: Vec<Tag<Body>>,
@@ -23,7 +23,7 @@ impl World {
     pub fn new() -> Self {
         let mut this = Self {
             bodies: Valet::new(),
-            root: None,
+            roots: Vec::new(),
             time: SimInstant::epoch(),
             last_update: Instant::now(),
             body_tags: vec![],
@@ -35,7 +35,6 @@ impl World {
             6.957e9,
             // 6.957e8,
         );
-        this.root = Some(sun);
         let earth = this.add_body(
             &OrbitSpec::Apsides {
                 parent: sun,
@@ -91,14 +90,15 @@ impl World {
         });
         if let Some(parent) = orbit_spec.parent() {
             self.bodies[&parent].satellites.push(tag);
+        } else {
+            self.roots.push(tag);
         }
         self.body_tags.push(tag);
         tag
     }
 
     fn update_positions(&mut self) {
-        let mut pending = Vec::new();
-        pending.push(self.root.unwrap());
+        let mut pending = self.roots.clone();
         while let Some(tag) = pending.pop() {
             let parent_state = self.bodies[&tag]
                 .trajectory
