@@ -7,15 +7,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
+bevy = "0.7"
 bytemuck = { version = "1.9", features = ["derive"] }
-env_logger = "0.9"
-glam = "0.20"
-once_cell = "1.10"
-pollster = "0.2"
-tiny-skia = "0.6"
-valet = "0.1"
-wgpu = "0.12"
-winit = "0.26"
 
 [profile.dev]
 opt-level = 3

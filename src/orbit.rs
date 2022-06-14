@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, f64::consts::TAU};
 
-use glam::{DQuat, DVec2, DVec3};
+use bevy::math::{DQuat, DVec2, DVec3};
 
 use crate::time::{SimDuration, SimInstant};
 

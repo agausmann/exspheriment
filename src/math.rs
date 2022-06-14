@@ -1,4 +1,4 @@
-use glam::Vec3;
+use bevy::math::Vec3;
 
 pub fn slerp(a: Vec3, b: Vec3, t: f32) -> Vec3 {
     let theta = a.angle_between(b);
