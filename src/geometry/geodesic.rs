@@ -86,8 +86,11 @@ impl From<Geodesic> for Mesh {
         }
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; vertices.len()]);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
         mesh.set_indices(Some(Indices::U16(triangles.into())));
+        mesh.duplicate_vertices();
+        mesh.compute_flat_normals();
         mesh
     }
 }
