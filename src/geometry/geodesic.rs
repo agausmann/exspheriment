@@ -63,16 +63,16 @@ impl From<Geodesic> for Mesh {
                 for i in 0..row {
                     triangles.extend([
                         u16::try_from(this_row_base + i).unwrap(),
-                        u16::try_from(last_row_base + i).unwrap(),
                         u16::try_from(this_row_base + i + 1).unwrap(),
+                        u16::try_from(last_row_base + i).unwrap(),
                     ])
                 }
 
                 for i in 0..row - 1 {
                     triangles.extend([
                         u16::try_from(last_row_base + i).unwrap(),
-                        u16::try_from(last_row_base + i + 1).unwrap(),
                         u16::try_from(this_row_base + i + 1).unwrap(),
+                        u16::try_from(last_row_base + i + 1).unwrap(),
                     ])
                 }
 
