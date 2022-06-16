@@ -154,7 +154,9 @@ fn controller_system(
             controller.yaw %= TAU;
 
             controller.pitch += SENSITIVITY * TAU / 360.0 * -event.delta.y;
-            controller.pitch = controller.pitch.clamp(-TAU / 4.0, TAU / 4.0);
+            controller.pitch = controller
+                .pitch
+                .clamp(1.0e-3 - TAU / 4.0, TAU / 4.0 - 1.0e-3);
         }
     }
 
