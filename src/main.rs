@@ -11,7 +11,7 @@ use bevy::{
     core_pipeline::ClearColor,
     input::{mouse::MouseMotion, Input},
     math::{DVec3, Quat, Vec3},
-    pbr::{DirectionalLightBundle, MaterialMeshBundle, StandardMaterial},
+    pbr::{AmbientLight, DirectionalLightBundle, MaterialMeshBundle, StandardMaterial},
     prelude::{
         Assets, Color, Commands, Component, EventReader, KeyCode, Mesh, MouseButton,
         ParallelSystemDescriptorCoercion, PerspectiveCameraBundle, Query, Res, ResMut, SystemSet,
@@ -242,6 +242,10 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(SimTimer::new())
         .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1)))
+        .insert_resource(AmbientLight {
+            color: Color::WHITE,
+            brightness: 0.02,
+        })
         .insert_resource(FocusState {
             grabbed: false,
             window_focused: false,
@@ -256,5 +260,5 @@ fn main() {
                 .with_system(fixed_rotation_system.after(sim_tick_system))
                 .with_system(controller_system),
         )
-        .run()
+        .run();
 }
