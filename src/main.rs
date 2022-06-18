@@ -334,11 +334,11 @@ fn controller_system(
     }
 
     *transform = Transform {
-        translation: position.0.as_vec3(),
+        translation: Vec3::ZERO,
         rotation: Quat::IDENTITY,
         scale: Vec3::ONE,
     }
-    .looking_at((position.0 + forward).as_vec3(), up.as_vec3())
+    .looking_at(forward.as_vec3(), up.as_vec3())
 }
 
 fn angular_motion_system(time: Res<SimTimer>, mut bodies: Query<(&AngularMotion, &mut Transform)>) {
