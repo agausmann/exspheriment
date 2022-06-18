@@ -16,13 +16,13 @@ use bevy::{
     prelude::{
         Assets, Color, Commands, Component, Entity, EventReader, KeyCode, Mesh, MouseButton,
         ParallelSystemDescriptorCoercion, PerspectiveCameraBundle, Query, Res, ResMut, SystemSet,
-        Transform, Visibility,
+        Transform,
     },
     window::{WindowFocused, Windows},
     DefaultPlugins,
 };
 use geometry::{Geodesic, SubdivisionMethod};
-use orbit::Orbit3D;
+use orbit::{Orbit2D, Orbit3D};
 use time::{SimDuration, SimInstant};
 
 const SIM_INTERVAL: Duration = Duration::from_millis(10);
@@ -90,10 +90,10 @@ struct FixedRotation {
     rotation_period: SimDuration,
 }
 
-#[derive(Component)]
+#[derive(Default, Component)]
 struct Position(DVec3);
 
-#[derive(Component)]
+#[derive(Default, Component)]
 struct Velocity(DVec3);
 
 fn orbit_system(
@@ -192,31 +192,62 @@ fn setup_system(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let geodesic = meshes.add(Mesh::from(Geodesic {
-        subdivisions: 8,
-        method: SubdivisionMethod::Lerp,
-    }));
-    let earth_material = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.0, 0.1, 0.3),
-        ..Default::default()
-    });
-
-    commands
+    let body_1 = commands
         .spawn()
         .insert_bundle(MaterialMeshBundle {
-            mesh: geodesic,
-            material: earth_material,
-            transform: Transform::identity(),
-            global_transform: Default::default(),
-            visibility: Visibility { is_visible: true },
-            computed_visibility: Default::default(),
+            mesh: meshes.add(Mesh::from(Geodesic {
+                subdivisions: 8,
+                method: SubdivisionMethod::Lerp,
+            })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.0, 0.1, 0.3),
+                ..Default::default()
+            }),
+            ..Default::default()
         })
         .insert(Position(DVec3::ZERO))
         .insert(AngularMotion::FixedRotation(FixedRotation {
             rotation_axis: Vec3::Z,
             epoch_orientation: Quat::IDENTITY,
             rotation_period: SimDuration::from_secs_f64(60.0),
-        }));
+        }))
+        .id();
+
+    let _body_2 = commands
+        .spawn()
+        .insert_bundle(MaterialMeshBundle {
+            mesh: meshes.add(Mesh::from(Geodesic {
+                subdivisions: 1,
+                method: SubdivisionMethod::Lerp,
+            })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.8, 0.8, 0.8),
+                ..Default::default()
+            }),
+            transform: Transform {
+                scale: Vec3::splat(0.1),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(Position::default())
+        .insert(Velocity::default())
+        .insert(OrbitalTrajectory {
+            parent: body_1,
+            orbit: Orbit3D::new(
+                Orbit2D::from_apsides(5.0, 5.0, SimInstant::epoch(), 1.0),
+                0.0,
+                0.0,
+                0.0,
+            ),
+        })
+        .insert(AngularMotion::FixedRotation(FixedRotation {
+            epoch_orientation: Quat::IDENTITY,
+            rotation_axis: Vec3::Z,
+            rotation_period: SimDuration::from_secs_f64(120.0),
+        }))
+        .id();
+
     commands
         .spawn()
         .insert_bundle(PerspectiveCameraBundle::default())
