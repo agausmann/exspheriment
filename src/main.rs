@@ -126,6 +126,7 @@ fn absolute_position_system(
     position_query: Query<&Position>,
     parent_query: Query<&Parent>,
 ) {
+    // let origin = DVec3::ZERO;
     let origin: DVec3 = match origin_query.get_single() {
         Ok((_, position)) => position.0,
         _ => return,
@@ -179,9 +180,9 @@ fn absolute_position_inner(
                 parent_query,
             )
         }
-        _ => DVec3::ZERO,
+        _ => -origin,
     };
-    let absolute_position = position.0 + parent_position - origin;
+    let absolute_position = position.0 + parent_position;
     absolute_positions.insert(entity, absolute_position);
     transform.translation = absolute_position.as_vec3();
     absolute_position
@@ -213,11 +214,11 @@ fn setup_system(
         }))
         .id();
 
-    let _body_2 = commands
+    let body_2 = commands
         .spawn()
         .insert_bundle(MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(Geodesic {
-                subdivisions: 1,
+                subdivisions: 2,
                 method: SubdivisionMethod::Lerp,
             })),
             material: materials.add(StandardMaterial {
@@ -225,7 +226,7 @@ fn setup_system(
                 ..Default::default()
             }),
             transform: Transform {
-                scale: Vec3::splat(0.1),
+                scale: Vec3::splat(0.3),
                 ..Default::default()
             },
             ..Default::default()
@@ -245,6 +246,40 @@ fn setup_system(
             epoch_orientation: Quat::IDENTITY,
             rotation_axis: Vec3::Z,
             rotation_period: SimDuration::from_secs_f64(120.0),
+        }))
+        .id();
+
+    let _body_3 = commands
+        .spawn()
+        .insert_bundle(MaterialMeshBundle {
+            mesh: meshes.add(Mesh::from(Geodesic {
+                subdivisions: 1,
+                method: SubdivisionMethod::Lerp,
+            })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.5, 0.0, 0.0),
+                ..Default::default()
+            }),
+            transform: Transform {
+                scale: Vec3::splat(0.1),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(Position::default())
+        .insert(Velocity::default())
+        .insert(OrbitalTrajectory {
+            parent: body_2,
+            orbit: Orbit3D::new(
+                Orbit2D::from_apsides(1.0, 1.0, SimInstant::epoch(), 0.1),
+                0.0,
+                f64::TAU / 8.0,
+                0.0,
+            ),
+        })
+        .insert(AngularMotion::Standard(StandardAngularMotion {
+            rotation_axis: Vec3::X,
+            rotation_rate: 0.0,
         }))
         .id();
 
@@ -333,12 +368,8 @@ fn controller_system(
         position.0 += delta * MOVE_SPEED * SIM_INTERVAL.as_secs_f64();
     }
 
-    *transform = Transform {
-        translation: Vec3::ZERO,
-        rotation: Quat::IDENTITY,
-        scale: Vec3::ONE,
-    }
-    .looking_at(forward.as_vec3(), up.as_vec3())
+    let target = transform.translation + forward.as_vec3();
+    transform.look_at(target, up.as_vec3());
 }
 
 fn angular_motion_system(time: Res<SimTimer>, mut bodies: Query<(&AngularMotion, &mut Transform)>) {
