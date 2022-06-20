@@ -273,6 +273,11 @@ impl Orbit3D {
         Self::new(Orbit2D::new(e_mag, p, t0, grav), arg_pe, inc, lan)
     }
 
+    /// Updates the state of `self`, keeping the gravitational parameter the same.
+    pub fn update_from_current_state(&mut self, state: &State3D) {
+        *self = Self::from_current_state(state, self.shape.grav);
+    }
+
     pub fn shape(&self) -> &Orbit2D {
         &self.shape
     }

@@ -128,9 +128,15 @@ fn setup_system(
         .insert(GlobalPosition::default())
         .insert(RelativeMotion {
             relative_to: body_1,
-            motion: Motion::Fixed {
-                position: DVec3::new(0.0, -4.0, 0.0),
-            },
+            // motion: Motion::Fixed {
+            //     position: DVec3::new(0.0, -4.0, 0.0),
+            // },
+            motion: Motion::Orbital(Orbit3D::new(
+                Orbit2D::from_apsides(10.0, 5.0, SimInstant::epoch(), 1.0),
+                0.0,
+                f64::TAU / 6.0,
+                -f64::TAU / 4.0,
+            )),
         })
         .insert(WorldOrigin);
     commands.spawn().insert_bundle(DirectionalLightBundle {

@@ -11,7 +11,9 @@ use bevy::{
     window::{WindowFocused, Windows},
 };
 
-use super::physics::{Motion, RelativeMotion, SIM_INTERVAL};
+use crate::orbit::State3D;
+
+use super::physics::{Motion, RelativeMotion, SimTimer, SIM_INTERVAL};
 
 pub struct InputPlugin;
 
@@ -36,8 +38,11 @@ pub struct Controller {
 /// Mouse look sensitivity (degrees per dot)
 const SENSITIVITY: f64 = 0.2;
 
-/// Move speed (meters per second)
+/// Move speed for fixed-position camera controller (meters per second)
 const MOVE_SPEED: f64 = 3.0;
+
+/// Acceleration factor for orbital motion controller (units TBD)
+const ORBIT_ACCEL: f64 = 0.1;
 
 pub struct FocusState {
     window_focused: bool,
@@ -55,6 +60,7 @@ impl Default for FocusState {
 
 pub fn controller_system(
     mut camera: Query<(&mut Controller, &mut RelativeMotion, &mut Transform)>,
+    time: Res<SimTimer>,
     focus: Res<FocusState>,
     keys: Res<Input<KeyCode>>,
     mut mouse: EventReader<MouseMotion>,
@@ -74,22 +80,30 @@ pub fn controller_system(
         }
     }
 
-    let forward = DVec3::new(
+    let relative_forward = DVec3::new(
         controller.yaw.cos() * controller.pitch.cos(),
         controller.yaw.sin() * controller.pitch.cos(),
         controller.pitch.sin(),
     );
-    let up = DVec3::Z;
-    let right = forward.cross(up).normalize();
-    let flat_forward = up.cross(right);
+    let aligned_up = DVec3::Z;
+    let right = relative_forward.cross(aligned_up).normalize();
+    let aligned_forward = aligned_up.cross(right);
+    let relative_up = right.cross(relative_forward);
+
+    let (effective_forward, effective_up) = match relative_motion.motion {
+        // Axis-aligned to make freecam a bit nicer
+        Motion::Fixed { .. } => (aligned_forward, aligned_up),
+        // Relative to view direction to make thrust nicer.
+        Motion::Orbital(..) => (relative_forward, relative_up),
+    };
 
     if focus.grabbed && focus.window_focused {
         let mut delta = DVec3::ZERO;
         if keys.pressed(KeyCode::W) {
-            delta += flat_forward;
+            delta += effective_forward;
         }
         if keys.pressed(KeyCode::S) {
-            delta -= flat_forward;
+            delta -= effective_forward;
         }
         if keys.pressed(KeyCode::A) {
             delta -= right;
@@ -98,23 +112,31 @@ pub fn controller_system(
             delta += right;
         }
         if keys.pressed(KeyCode::Space) {
-            delta += up;
+            delta += effective_up;
         }
         if keys.pressed(KeyCode::LShift) {
-            delta -= up;
+            delta -= effective_up;
         }
         match &mut relative_motion.motion {
             &mut Motion::Fixed { ref mut position } => {
                 *position += delta * MOVE_SPEED * SIM_INTERVAL.as_secs_f64();
             }
-            &mut Motion::Orbital(ref mut _orbit) => {
-                unimplemented!("orbital controller");
+            &mut Motion::Orbital(ref mut orbit) => {
+                if delta != DVec3::ZERO {
+                    let dv = delta * ORBIT_ACCEL * SIM_INTERVAL.as_secs_f64();
+                    let current_state = orbit.current_state(time.now());
+                    let new_state = State3D {
+                        velocity: current_state.velocity + dv,
+                        ..current_state
+                    };
+                    orbit.update_from_current_state(&new_state);
+                }
             }
         }
     }
 
-    let target = transform.translation + forward.as_vec3();
-    transform.look_at(target, up.as_vec3());
+    let target = transform.translation + relative_forward.as_vec3();
+    transform.look_at(target, aligned_up.as_vec3());
 }
 
 fn cursor_grab_system(
