@@ -17,8 +17,8 @@ use bevy::{
 use ecs::{
     input::Controller,
     physics::{
-        AngularMotion, FixedRotation, OrbitalTrajectory, Position, StandardAngularMotion,
-        TransformOrigin, Velocity,
+        AngularMotion, FixedRotation, GlobalPosition, Motion, RelativeMotion,
+        StandardAngularMotion, WorldOrigin,
     },
 };
 use geometry::{Geodesic, SubdivisionMethod};
@@ -43,7 +43,7 @@ fn setup_system(
             }),
             ..Default::default()
         })
-        .insert(Position(DVec3::ZERO))
+        .insert(GlobalPosition(DVec3::ZERO))
         .insert(AngularMotion::FixedRotation(FixedRotation {
             rotation_axis: Vec3::Z,
             epoch_orientation: Quat::IDENTITY,
@@ -68,16 +68,15 @@ fn setup_system(
             },
             ..Default::default()
         })
-        .insert(Position::default())
-        .insert(Velocity::default())
-        .insert(OrbitalTrajectory {
-            parent: body_1,
-            orbit: Orbit3D::new(
+        .insert(GlobalPosition::default())
+        .insert(RelativeMotion {
+            relative_to: body_1,
+            motion: Motion::Orbital(Orbit3D::new(
                 Orbit2D::from_apsides(5.0, 5.0, SimInstant::epoch(), 1.0),
                 0.0,
                 0.0,
                 0.0,
-            ),
+            )),
         })
         .insert(AngularMotion::FixedRotation(FixedRotation {
             epoch_orientation: Quat::IDENTITY,
@@ -103,16 +102,15 @@ fn setup_system(
             },
             ..Default::default()
         })
-        .insert(Position::default())
-        .insert(Velocity::default())
-        .insert(OrbitalTrajectory {
-            parent: body_2,
-            orbit: Orbit3D::new(
+        .insert(GlobalPosition::default())
+        .insert(RelativeMotion {
+            relative_to: body_2,
+            motion: Motion::Orbital(Orbit3D::new(
                 Orbit2D::from_apsides(1.0, 1.0, SimInstant::epoch(), 0.1),
                 0.0,
                 f64::TAU / 8.0,
                 0.0,
-            ),
+            )),
         })
         .insert(AngularMotion::Standard(StandardAngularMotion {
             rotation_axis: Vec3::X,
@@ -127,8 +125,14 @@ fn setup_system(
             pitch: 0.0,
             yaw: f64::TAU / 4.0,
         })
-        .insert(Position(DVec3::new(0.0, -4.0, 0.0)))
-        .insert(TransformOrigin);
+        .insert(GlobalPosition::default())
+        .insert(RelativeMotion {
+            relative_to: body_1,
+            motion: Motion::Fixed {
+                position: DVec3::new(0.0, -4.0, 0.0),
+            },
+        })
+        .insert(WorldOrigin);
     commands.spawn().insert_bundle(DirectionalLightBundle {
         transform: Transform::from_rotation(Quat::from_rotation_y(f32::TAU / 8.0)),
         ..Default::default()

@@ -11,17 +11,13 @@ use bevy::{
     window::{WindowFocused, Windows},
 };
 
-use super::physics::{Position, SIM_INTERVAL};
+use super::physics::{Motion, RelativeMotion, SIM_INTERVAL};
 
 pub struct InputPlugin;
 
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.insert_resource(FocusState {
-            grabbed: false,
-            window_focused: false,
-        })
-        .add_system_set(
+        app.insert_resource(FocusState::default()).add_system_set(
             SystemSet::new()
                 .label("input")
                 .with_run_criteria(FixedTimestep::step(SIM_INTERVAL.as_secs_f64()))
@@ -48,13 +44,22 @@ pub struct FocusState {
     grabbed: bool,
 }
 
+impl Default for FocusState {
+    fn default() -> Self {
+        Self {
+            window_focused: true,
+            grabbed: false,
+        }
+    }
+}
+
 pub fn controller_system(
-    mut camera: Query<(&mut Controller, &mut Position, &mut Transform)>,
+    mut camera: Query<(&mut Controller, &mut RelativeMotion, &mut Transform)>,
     focus: Res<FocusState>,
     keys: Res<Input<KeyCode>>,
     mut mouse: EventReader<MouseMotion>,
 ) {
-    let (mut controller, mut position, mut transform) = camera.single_mut();
+    let (mut controller, mut relative_motion, mut transform) = camera.single_mut();
 
     for event in mouse.iter() {
         let event_delta = event.delta.as_dvec2();
@@ -98,7 +103,15 @@ pub fn controller_system(
         if keys.pressed(KeyCode::LShift) {
             delta -= up;
         }
-        position.0 += delta * MOVE_SPEED * SIM_INTERVAL.as_secs_f64();
+        match &mut relative_motion.motion {
+            &mut Motion::Fixed { ref mut position } => {
+                *position += delta * MOVE_SPEED * SIM_INTERVAL.as_secs_f64();
+                dbg!(position, delta);
+            }
+            &mut Motion::Orbital(ref mut _orbit) => {
+                unimplemented!("orbital controller");
+            }
+        }
     }
 
     let target = transform.translation + forward.as_vec3();

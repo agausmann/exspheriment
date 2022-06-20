@@ -10,7 +10,7 @@ use bevy::{
     math::{DVec3, Quat, Vec3},
     prelude::{
         Component, Entity, ParallelSystemDescriptorCoercion, Plugin, Query, Res, ResMut, SystemSet,
-        Transform,
+        Transform, With, Without,
     },
 };
 
@@ -25,9 +25,9 @@ impl Plugin for PhysicsPlugin {
                 .label("physics")
                 .with_run_criteria(FixedTimestep::step(SIM_INTERVAL.as_secs_f64()))
                 .with_system(sim_tick_system)
-                .with_system(orbit_system.after(sim_tick_system))
-                .with_system(angular_motion_system.after(sim_tick_system))
-                .with_system(absolute_position_system.after(orbit_system)),
+                .with_system(motion_system.after(sim_tick_system))
+                .with_system(global_position_to_transform_system.after(motion_system))
+                .with_system(angular_motion_system.after(sim_tick_system)),
         );
     }
 }
@@ -53,15 +53,31 @@ impl SimTimer {
 }
 
 #[derive(Default, Component)]
-pub struct Position(pub DVec3);
-
-#[derive(Default, Component)]
-pub struct Velocity(pub DVec3);
+pub struct GlobalPosition(pub DVec3);
 
 #[derive(Component)]
-pub struct OrbitalTrajectory {
-    pub parent: Entity,
-    pub orbit: Orbit3D,
+pub struct RelativeMotion {
+    pub relative_to: Entity,
+    pub motion: Motion,
+}
+
+pub enum Motion {
+    Fixed { position: DVec3 },
+    Orbital(Orbit3D),
+}
+
+impl Motion {
+    pub fn position(&self, time: SimInstant) -> DVec3 {
+        match self {
+            &Self::Fixed { position } => position,
+            &Self::Orbital(orbit) => orbit.current_state(time).position,
+        }
+    }
+}
+
+pub struct FreeMotion {
+    pub position: DVec3,
+    pub velocity: DVec3,
 }
 
 #[derive(Component)]
@@ -105,96 +121,75 @@ pub struct FixedRotation {
     pub rotation_period: SimDuration,
 }
 
-pub fn orbit_system(
+// Marker component used to identify the origin body for computing global positions.
+// Generally the player/camera should be the origin point to maximize the local precision.
+#[derive(Component)]
+pub struct WorldOrigin;
+
+pub fn motion_system(
     timer: Res<SimTimer>,
-    mut orbits: Query<(
-        &OrbitalTrajectory,
-        Option<&mut Position>,
-        Option<&mut Velocity>,
-    )>,
+    root_query: Query<(), (With<GlobalPosition>, Without<RelativeMotion>)>,
+    origin_query: Query<(Entity, &WorldOrigin)>,
+    relative_motion_query: Query<&RelativeMotion>,
+    mut global_position_query: Query<(Entity, &mut GlobalPosition)>,
 ) {
-    for (orbit, position, velocity) in orbits.iter_mut() {
-        let state = orbit.orbit.current_state(timer.now);
-        if let Some(mut position) = position {
-            position.0 = state.position;
-        }
-        if let Some(mut velocity) = velocity {
-            velocity.0 = state.velocity;
+    // Root query is not actually read, but is a sanity check to make sure that
+    // there is exactly one root.
+    let _ = root_query.single();
+
+    let mut cached_global_positions = HashMap::new();
+
+    // First, work upwards from origin entity to root.
+    // This will provide base cases for determining positioning of other bodies,
+    // which recurse over the parent until they find an ancestor whose position
+    // has already been calculated. All other bodies share at least one ancestor
+    // with the origin (the root body).
+    let (origin_entity, _) = origin_query.single();
+    let mut current_entity = origin_entity;
+    let mut current_position = DVec3::ZERO;
+    loop {
+        cached_global_positions.insert(current_entity, current_position);
+
+        if let Ok(relative_motion) = relative_motion_query.get(current_entity) {
+            current_entity = relative_motion.relative_to;
+            current_position -= relative_motion.motion.position(timer.now);
+        } else {
+            break;
         }
     }
-}
 
-// Marker component used to identify the origin when computing transforms.
-#[derive(Component)]
-pub struct TransformOrigin;
-
-pub fn absolute_position_system(
-    origin_query: Query<(&TransformOrigin, &Position)>,
-    mut objects_query: Query<(Entity, &Position, &mut Transform)>,
-    orbit_query: Query<&OrbitalTrajectory>,
-    position_query: Query<&Position>,
-    parent_query: Query<&Parent>,
-) {
-    // let origin = DVec3::ZERO;
-    let origin: DVec3 = match origin_query.get_single() {
-        Ok((_, position)) => position.0,
-        _ => return,
-    };
-    let mut visited = HashMap::new();
-
-    for (entity, position, mut transform) in objects_query.iter_mut() {
-        absolute_position_inner(
+    // Now iterate over all bodies and update global positions,
+    // calculating and memoizing as needed:
+    fn get_position(
+        entity: Entity,
+        now: SimInstant,
+        relative_motion_query: &Query<&RelativeMotion>,
+        cached_global_positions: &mut HashMap<Entity, DVec3>,
+    ) -> DVec3 {
+        if let Some(&position) = cached_global_positions.get(&entity) {
+            return position;
+        }
+        let relative_motion = relative_motion_query
+            .get(entity)
+            .expect("internal error: non-root entity does not have RelativeMotion");
+        let parent_position = get_position(
+            relative_motion.relative_to,
+            now,
+            relative_motion_query,
+            cached_global_positions,
+        );
+        let position = parent_position + relative_motion.motion.position(now);
+        cached_global_positions.insert(entity, position);
+        position
+    }
+    for (entity, mut global_position) in global_position_query.iter_mut() {
+        global_position.0 = get_position(
             entity,
-            position,
-            &mut *transform,
-            origin,
-            &mut visited,
-            &orbit_query,
-            &position_query,
-            &parent_query,
+            timer.now,
+            &relative_motion_query,
+            &mut cached_global_positions,
         );
     }
-}
-
-fn absolute_position_inner(
-    entity: Entity,
-    position: &Position,
-    transform: &mut Transform,
-    origin: DVec3,
-    absolute_positions: &mut HashMap<Entity, DVec3>,
-    orbit_query: &Query<&OrbitalTrajectory>,
-    position_query: &Query<&Position>,
-    parent_query: &Query<&Parent>,
-) -> DVec3 {
-    if let Some(&position) = absolute_positions.get(&entity) {
-        return position;
-    }
-    debug_assert!(
-        !parent_query.contains(entity),
-        "conflicting global transforms for entity: has both a Parent and a Position"
-    );
-    let parent_position = match orbit_query.get(entity) {
-        Ok(orbit) => {
-            let relative_position = position_query
-                .get(orbit.parent)
-                .expect("orbit parent does not have a Position");
-            absolute_position_inner(
-                orbit.parent,
-                relative_position,
-                transform,
-                origin,
-                absolute_positions,
-                orbit_query,
-                position_query,
-                parent_query,
-            )
-        }
-        _ => -origin,
-    };
-    let absolute_position = position.0 + parent_position;
-    absolute_positions.insert(entity, absolute_position);
-    transform.translation = absolute_position.as_vec3();
-    absolute_position
 }
 
 pub fn angular_motion_system(
@@ -216,5 +211,18 @@ pub fn angular_motion_system(
                 transform.rotation = (quat * transform.rotation).normalize();
             }
         }
+    }
+}
+
+pub fn global_position_to_transform_system(
+    mut transform_query: Query<(Entity, &GlobalPosition, &mut Transform)>,
+    parent_query: Query<&Parent>,
+) {
+    for (entity, global_position, mut transform) in transform_query.iter_mut() {
+        debug_assert!(
+            !parent_query.contains(entity),
+            "transform conflict: entity has both GlobalPosition and Parent",
+        );
+        transform.translation = global_position.0.as_vec3();
     }
 }
