@@ -106,7 +106,6 @@ pub fn controller_system(
         match &mut relative_motion.motion {
             &mut Motion::Fixed { ref mut position } => {
                 *position += delta * MOVE_SPEED * SIM_INTERVAL.as_secs_f64();
-                dbg!(position, delta);
             }
             &mut Motion::Orbital(ref mut _orbit) => {
                 unimplemented!("orbital controller");
