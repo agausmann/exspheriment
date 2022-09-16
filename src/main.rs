@@ -8,10 +8,10 @@ use std::{f32::consts as f32, f64::consts as f64};
 
 use bevy::{
     app::App,
-    core_pipeline::ClearColor,
+    core_pipeline::clear_color::ClearColor,
     math::{DVec3, Quat, Vec3},
     pbr::{AmbientLight, DirectionalLightBundle, MaterialMeshBundle, StandardMaterial},
-    prelude::{Assets, Color, Commands, Mesh, PerspectiveCameraBundle, ResMut, Transform},
+    prelude::{Assets, Camera3dBundle, Color, Commands, Mesh, ResMut, Transform},
     DefaultPlugins,
 };
 use ecs::{
@@ -120,7 +120,7 @@ fn setup_system(
 
     commands
         .spawn()
-        .insert_bundle(PerspectiveCameraBundle::default())
+        .insert_bundle(Camera3dBundle::default())
         .insert(Controller {
             pitch: 0.0,
             yaw: f64::TAU / 4.0,

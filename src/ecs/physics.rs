@@ -5,13 +5,13 @@ use crate::{
     time::{SimDuration, SimInstant},
 };
 use bevy::{
-    core::FixedTimestep,
     hierarchy::Parent,
     math::{DVec3, Quat, Vec3},
     prelude::{
         Component, Entity, ParallelSystemDescriptorCoercion, Plugin, Query, Res, ResMut, SystemSet,
         Transform, With, Without,
     },
+    time::FixedTimestep,
 };
 
 pub const SIM_INTERVAL: Duration = Duration::from_millis(10);

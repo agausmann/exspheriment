@@ -1,13 +1,13 @@
 use std::f64::consts as f64;
 
 use bevy::{
-    core::FixedTimestep,
     input::{mouse::MouseMotion, Input},
     math::DVec3,
     prelude::{
         Component, EventReader, KeyCode, MouseButton, Plugin, Query, Res, ResMut, SystemSet,
         Transform,
     },
+    time::FixedTimestep,
     window::{WindowFocused, Windows},
 };
 
