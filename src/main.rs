@@ -14,8 +14,8 @@ use bevy::{
         AmbientLight, DirectionalLightBundle, MaterialMeshBundle, NotShadowCaster, StandardMaterial,
     },
     prelude::{
-        Assets, Camera3dBundle, Color, Commands, Mesh, PointLight, PointLightBundle, ResMut,
-        Transform,
+        Assets, BuildChildren, Camera3dBundle, Color, Commands, Mesh, PointLight, PointLightBundle,
+        ResMut, Transform,
     },
     DefaultPlugins,
 };
@@ -37,18 +37,6 @@ fn setup_system(
 ) {
     let body_1 = commands
         .spawn()
-        .insert_bundle(MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(Geodesic {
-                subdivisions: 8,
-                method: SubdivisionMethod::Lerp,
-            })),
-            material: materials.add(StandardMaterial {
-                // base_color: Color::rgb(0.0, 0.1, 0.3),
-                emissive: Color::rgb(1.0, 0.2, 0.0),
-                ..Default::default()
-            }),
-            ..Default::default()
-        })
         .insert(GlobalPosition(DVec3::ZERO))
         .insert(AngularMotion::FixedRotation(FixedRotation {
             rotation_axis: Vec3::Z,
@@ -66,7 +54,22 @@ fn setup_system(
             },
             ..Default::default()
         })
-        .insert(NotShadowCaster)
+        .with_children(|builder| {
+            builder
+                .spawn_bundle(MaterialMeshBundle {
+                    mesh: meshes.add(Mesh::from(Geodesic {
+                        subdivisions: 8,
+                        method: SubdivisionMethod::Lerp,
+                    })),
+                    material: materials.add(StandardMaterial {
+                        // base_color: Color::rgb(0.0, 0.1, 0.3),
+                        emissive: Color::rgb(1.0, 0.2, 0.0),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                })
+                .insert(NotShadowCaster);
+        })
         .id();
 
     let body_2 = commands
