@@ -10,8 +10,13 @@ use bevy::{
     app::App,
     core_pipeline::clear_color::ClearColor,
     math::{DVec3, Quat, Vec3},
-    pbr::{AmbientLight, DirectionalLightBundle, MaterialMeshBundle, StandardMaterial},
-    prelude::{Assets, Camera3dBundle, Color, Commands, Mesh, ResMut, Transform},
+    pbr::{
+        AmbientLight, DirectionalLightBundle, MaterialMeshBundle, NotShadowCaster, StandardMaterial,
+    },
+    prelude::{
+        Assets, Camera3dBundle, Color, Commands, Mesh, PointLight, PointLightBundle, ResMut,
+        Transform,
+    },
     DefaultPlugins,
 };
 use ecs::{
@@ -38,7 +43,8 @@ fn setup_system(
                 method: SubdivisionMethod::Lerp,
             })),
             material: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.0, 0.1, 0.3),
+                // base_color: Color::rgb(0.0, 0.1, 0.3),
+                emissive: Color::rgb(1.0, 0.2, 0.0),
                 ..Default::default()
             }),
             ..Default::default()
@@ -49,6 +55,18 @@ fn setup_system(
             epoch_orientation: Quat::IDENTITY,
             rotation_period: SimDuration::from_secs_f64(60.0),
         }))
+        .insert_bundle(PointLightBundle {
+            point_light: PointLight {
+                color: Color::rgb(1.0, 0.2, 0.0),
+                intensity: 1000.0,
+                range: 100.0,
+                radius: 1.0,
+                shadows_enabled: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(NotShadowCaster)
         .id();
 
     let body_2 = commands
@@ -126,23 +144,22 @@ fn setup_system(
             yaw: f64::TAU / 4.0,
         })
         .insert(GlobalPosition::default())
+        // .insert(RelativeMotion {
+        //     relative_to: body_2,
+        //     motion: Motion::Orbital(Orbit3D::new(
+        //         Orbit2D::from_apsides(0.8, 0.8, SimInstant::epoch(), 0.1),
+        //         0.0,
+        //         0.0,
+        //         0.0,
+        //     )),
+        // })
         .insert(RelativeMotion {
             relative_to: body_1,
-            // motion: Motion::Fixed {
-            //     position: DVec3::new(0.0, -4.0, 0.0),
-            // },
-            motion: Motion::Orbital(Orbit3D::new(
-                Orbit2D::from_apsides(10.0, 5.0, SimInstant::epoch(), 1.0),
-                0.0,
-                f64::TAU / 6.0,
-                -f64::TAU / 4.0,
-            )),
+            motion: Motion::Fixed {
+                position: DVec3::new(2.0, 0.0, 0.0),
+            },
         })
         .insert(WorldOrigin);
-    commands.spawn().insert_bundle(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_rotation_y(f32::TAU / 8.0)),
-        ..Default::default()
-    });
 }
 
 fn main() {
