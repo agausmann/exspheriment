@@ -1,5 +1,5 @@
-mod geodesic;
 mod icosahedron;
+mod icosphere;
 
-pub use self::geodesic::{Geodesic, SubdivisionMethod};
 pub use self::icosahedron::Icosahedron;
+pub use self::icosphere::{Icosphere, SubdivisionMethod};

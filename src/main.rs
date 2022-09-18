@@ -26,7 +26,7 @@ use ecs::{
         StandardAngularMotion, WorldOrigin,
     },
 };
-use geometry::{Geodesic, SubdivisionMethod};
+use geometry::{Icosphere, SubdivisionMethod};
 use orbit::{Orbit2D, Orbit3D};
 use time::{SimDuration, SimInstant};
 
@@ -57,7 +57,7 @@ fn setup_system(
         .with_children(|builder| {
             builder
                 .spawn_bundle(MaterialMeshBundle {
-                    mesh: meshes.add(Mesh::from(Geodesic {
+                    mesh: meshes.add(Mesh::from(Icosphere {
                         subdivisions: 8,
                         method: SubdivisionMethod::Lerp,
                     })),
@@ -75,7 +75,7 @@ fn setup_system(
     let body_2 = commands
         .spawn()
         .insert_bundle(MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(Geodesic {
+            mesh: meshes.add(Mesh::from(Icosphere {
                 subdivisions: 2,
                 method: SubdivisionMethod::Lerp,
             })),
@@ -109,7 +109,7 @@ fn setup_system(
     let _body_3 = commands
         .spawn()
         .insert_bundle(MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(Geodesic {
+            mesh: meshes.add(Mesh::from(Icosphere {
                 subdivisions: 1,
                 method: SubdivisionMethod::Lerp,
             })),
@@ -159,7 +159,7 @@ fn setup_system(
         .insert(RelativeMotion {
             relative_to: body_1,
             motion: Motion::Fixed {
-                position: DVec3::new(2.0, 0.0, 0.0),
+                position: DVec3::new(0.0, -2.0, 0.0),
             },
         })
         .insert(WorldOrigin);

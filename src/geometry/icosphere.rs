@@ -6,7 +6,7 @@ use bevy::{
 
 use crate::geometry::icosahedron;
 
-pub struct Geodesic {
+pub struct Icosphere {
     pub subdivisions: usize,
     pub method: SubdivisionMethod,
 }
@@ -25,8 +25,8 @@ impl SubdivisionMethod {
     }
 }
 
-impl From<Geodesic> for Mesh {
-    fn from(geo: Geodesic) -> Self {
+impl From<Icosphere> for Mesh {
+    fn from(geo: Icosphere) -> Self {
         use icosahedron::{INDICES, VERTICES};
 
         let mut vertices = Vec::new();
