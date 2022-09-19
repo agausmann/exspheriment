@@ -4,18 +4,16 @@ pub mod math;
 pub mod orbit;
 pub mod time;
 
-use std::{f32::consts as f32, f64::consts as f64};
+use std::f64::consts as f64;
 
 use bevy::{
     app::App,
     core_pipeline::clear_color::ClearColor,
     math::{DVec3, Quat, Vec3},
-    pbr::{
-        AmbientLight, DirectionalLightBundle, MaterialMeshBundle, NotShadowCaster, StandardMaterial,
-    },
+    pbr::{AmbientLight, MaterialMeshBundle, NotShadowCaster, StandardMaterial},
     prelude::{
         Assets, BuildChildren, Camera3dBundle, Color, Commands, Mesh, PointLight, PointLightBundle,
-        ResMut, Transform,
+        ResMut,
     },
     DefaultPlugins,
 };
@@ -26,7 +24,7 @@ use ecs::{
         StandardAngularMotion, WorldOrigin,
     },
 };
-use geometry::{Icosphere, SubdivisionMethod};
+use geometry::Icosphere;
 use orbit::{Orbit2D, Orbit3D};
 use time::{SimDuration, SimInstant};
 
@@ -58,8 +56,9 @@ fn setup_system(
             builder
                 .spawn_bundle(MaterialMeshBundle {
                     mesh: meshes.add(Mesh::from(Icosphere {
+                        radius: 1.0,
                         subdivisions: 8,
-                        method: SubdivisionMethod::Lerp,
+                        ..Default::default()
                     })),
                     material: materials.add(StandardMaterial {
                         // base_color: Color::rgb(0.0, 0.1, 0.3),
@@ -76,17 +75,14 @@ fn setup_system(
         .spawn()
         .insert_bundle(MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(Icosphere {
+                radius: 0.3,
                 subdivisions: 2,
-                method: SubdivisionMethod::Lerp,
+                ..Default::default()
             })),
             material: materials.add(StandardMaterial {
                 base_color: Color::rgb(0.8, 0.8, 0.8),
                 ..Default::default()
             }),
-            transform: Transform {
-                scale: Vec3::splat(0.3),
-                ..Default::default()
-            },
             ..Default::default()
         })
         .insert(GlobalPosition::default())
@@ -110,17 +106,14 @@ fn setup_system(
         .spawn()
         .insert_bundle(MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(Icosphere {
+                radius: 0.1,
                 subdivisions: 1,
-                method: SubdivisionMethod::Lerp,
+                ..Default::default()
             })),
             material: materials.add(StandardMaterial {
                 base_color: Color::rgb(0.5, 0.0, 0.0),
                 ..Default::default()
             }),
-            transform: Transform {
-                scale: Vec3::splat(0.1),
-                ..Default::default()
-            },
             ..Default::default()
         })
         .insert(GlobalPosition::default())

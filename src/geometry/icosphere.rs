@@ -7,8 +7,19 @@ use bevy::{
 use crate::geometry::icosahedron;
 
 pub struct Icosphere {
+    pub radius: f32,
     pub subdivisions: usize,
     pub method: SubdivisionMethod,
+}
+
+impl Default for Icosphere {
+    fn default() -> Self {
+        Self {
+            radius: 1.0,
+            subdivisions: 1,
+            method: SubdivisionMethod::Lerp,
+        }
+    }
 }
 
 pub enum SubdivisionMethod {
@@ -26,10 +37,10 @@ impl SubdivisionMethod {
 }
 
 impl From<Icosphere> for Mesh {
-    fn from(geo: Icosphere) -> Self {
+    fn from(ico: Icosphere) -> Self {
         use icosahedron::{INDICES, VERTICES};
 
-        let mut vertices = Vec::new();
+        let mut vertices: Vec<[f32; 3]> = Vec::new();
         let mut triangles = Vec::new();
 
         for triangle in INDICES.chunks_exact(3) {
@@ -38,23 +49,22 @@ impl From<Icosphere> for Mesh {
             let left = VERTICES[triangle[2] as usize];
 
             let mut last_row = Vec::new();
-            last_row.push(up);
+            last_row.push((ico.radius * Vec3::from(up)).into());
 
             let mut this_row = Vec::new();
 
-            for row in 1..=geo.subdivisions {
+            for row in 1..=ico.subdivisions {
                 // Construct vertexes for this row
-                let factor = row as f32 / geo.subdivisions as f32;
-                let row_start = geo.method.interpolate(up, left, factor);
-                let row_end = geo.method.interpolate(up, right, factor);
+                let factor = row as f32 / ico.subdivisions as f32;
+                let row_start = ico.method.interpolate(up, left, factor);
+                let row_end = ico.method.interpolate(up, right, factor);
                 for col in 0..=row {
                     let col_factor = col as f32 / row as f32;
-                    this_row.push(
-                        geo.method
-                            .interpolate(row_start, row_end, col_factor)
-                            .normalize()
-                            .into(),
-                    );
+                    let unit_vertex = ico
+                        .method
+                        .interpolate(row_start, row_end, col_factor)
+                        .normalize();
+                    this_row.push((ico.radius * unit_vertex).into());
                 }
 
                 // Construct triangles for this row
